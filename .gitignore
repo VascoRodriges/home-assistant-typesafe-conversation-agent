@@ -1,0 +1,22 @@
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.DS_Store
+
+# Working notes and anything pulled from a real Home Assistant. Fixtures
+# captured from a live instance profile the home they came from - room layout,
+# device brands, which security devices exist - so they must never be
+# committed. scripts/pull_home.py writes here by default.
+private/
+tests/fixtures/real_*
+docs/calibration-real-*.csv

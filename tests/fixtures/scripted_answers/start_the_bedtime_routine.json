@@ -1,0 +1,270 @@
+{
+  "utterance": "start the bedtime routine",
+  "expected": "command script.routine_bedtime run",
+  "spoken_from_area": "area_one",
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "command",
+        "confidence": 1.0,
+        "probabilities": {
+          "command": 1.0,
+          "information": 0.0,
+          "query": 0.0,
+          "unclear": 0.0,
+          "cancel": 0.0
+        }
+      },
+      "compound": {
+        "type": "noul",
+        "noul": 0.07
+      },
+      "scope": {
+        "type": "choice",
+        "choice": "single",
+        "confidence": 0.59,
+        "probabilities": {
+          "whole_house": 0.3,
+          "not_a_target": 0.02,
+          "floor": 0.0,
+          "single": 0.67,
+          "area": 0.01
+        }
+      },
+      "here_relative": {
+        "type": "noul",
+        "noul": 0.22
+      },
+      "change_direction": {
+        "type": "choice",
+        "choice": "no_numeric",
+        "confidence": 1.0,
+        "probabilities": {
+          "increase": 0.0,
+          "decrease": 0.0,
+          "no_numeric": 1.0,
+          "absolute": 0.0
+        }
+      },
+      "magnitude": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "confidence": 1.0,
+        "probabilities": {
+          "slight": 0.0,
+          "moderate": 0.0,
+          "not_applicable": 1.0,
+          "maximum": 0.0,
+          "large": 0.0
+        }
+      },
+      "query_kind": {
+        "type": "choice",
+        "choice": "not_a_query",
+        "confidence": 1.0,
+        "probabilities": {
+          "not_a_query": 1.0,
+          "needs_prose": 0.0,
+          "time_or_date": 0.0,
+          "device_state": 0.0,
+          "count": 0.0,
+          "temperature": 0.0
+        }
+      },
+      "risky": {
+        "type": "noul",
+        "noul": 0.07
+      },
+      "target_area": {
+        "type": "choice",
+        "choice": "area_one",
+        "confidence": 0.68,
+        "probabilities": {
+          "area_three": 0.0,
+          "lower_level": 0.0,
+          "upper_level": 0.0,
+          "area_two": 0.0,
+          "area_four": 0.0,
+          "yard": 0.0,
+          "no_area": 0.27,
+          "area_one": 0.73
+        }
+      },
+      "target_entity": {
+        "type": "choice",
+        "choice": "script.routine_bedtime",
+        "confidence": 1.0,
+        "probabilities": {
+          "script.routine_party": 0.0,
+          "weather.local_station": 0.0,
+          "sensor.zone_two_temperature": 0.0,
+          "sensor.zone_one_humidity": 0.0,
+          "script.routine_morning": 0.0,
+          "media_player.loft_speaker": 0.0,
+          "climate.zone_one": 0.0,
+          "cover.side_door": 0.0,
+          "vacuum.cleaner": 0.0,
+          "switch.workshop_extractor": 0.0,
+          "sensor.zone_two_humidity": 0.0,
+          "todo.list_one": 0.0,
+          "script.routine_away": 0.0,
+          "no_single_entity": 0.0,
+          "climate.zone_two": 0.0,
+          "script.routine_bedtime": 1.0,
+          "script.routine_guest": 0.0,
+          "script.routine_movie": 0.0,
+          "script.routine_evening": 0.0,
+          "light.study_lamp": 0.0,
+          "script.routine_focus": 0.0,
+          "sensor.zone_one_temperature": 0.0,
+          "weather.forecast_home": 0.0,
+          "media_player.study_speaker": 0.0
+        }
+      },
+      "target_domain": {
+        "type": "choice",
+        "choice": "script",
+        "confidence": 1.0,
+        "probabilities": {
+          "script": 1.0,
+          "climate": 0.0,
+          "none": 0.0,
+          "todo": 0.0,
+          "vacuum": 0.0,
+          "cover": 0.0,
+          "weather": 0.0,
+          "sensor": 0.0,
+          "light": 0.0,
+          "switch": 0.0,
+          "media_player": 0.0
+        }
+      },
+      "action_climate": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.62,
+        "probabilities": {
+          "warmer": 0.09,
+          "not_targeted": 0.67,
+          "set_temperature": 0.13,
+          "turn_off": 0.02,
+          "set_mode": 0.02,
+          "cooler": 0.06,
+          "turn_on": 0.01
+        }
+      },
+      "action_cover": {
+        "type": "choice",
+        "choice": "close",
+        "confidence": 0.5,
+        "probabilities": {
+          "stop": 0.0,
+          "open": 0.0,
+          "not_targeted": 0.4,
+          "close": 0.6,
+          "set_position": 0.0
+        }
+      },
+      "action_light": {
+        "type": "choice",
+        "choice": "turn_off",
+        "confidence": 0.38,
+        "probabilities": {
+          "brighter": 0.0,
+          "dimmer": 0.1,
+          "set_color": 0.0,
+          "turn_on": 0.0,
+          "toggle": 0.0,
+          "not_targeted": 0.42,
+          "set_brightness": 0.01,
+          "turn_off": 0.47000000000000003
+        }
+      },
+      "action_media_player": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.69,
+        "probabilities": {
+          "stop": 0.12,
+          "quieter": 0.06,
+          "louder": 0.0,
+          "next": 0.0,
+          "previous": 0.0,
+          "search_and_play": 0.0,
+          "mute": 0.06,
+          "set_volume": 0.02,
+          "unmute": 0.0,
+          "not_targeted": 0.73,
+          "play": 0.01,
+          "pause": 0.0
+        }
+      },
+      "action_script": {
+        "type": "choice",
+        "choice": "run",
+        "confidence": 1.0,
+        "probabilities": {
+          "run": 1.0,
+          "not_targeted": 0.0
+        }
+      },
+      "action_switch": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.43,
+        "probabilities": {
+          "toggle": 0.0,
+          "not_targeted": 0.57,
+          "turn_off": 0.42,
+          "turn_on": 0.01
+        }
+      },
+      "action_todo": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.99,
+        "probabilities": {
+          "complete_item": 0.0,
+          "add_item": 0.0,
+          "not_targeted": 1.0,
+          "remove_item": 0.0
+        }
+      },
+      "action_vacuum": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.8,
+        "probabilities": {
+          "not_targeted": 0.85,
+          "start": 0.04,
+          "clean_area": 0.0,
+          "return_to_base": 0.11
+        }
+      },
+      "media_query_span": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.98,
+        "probabilities": {
+          "start the bedtime routine": 0.01,
+          "none": 0.99
+        }
+      },
+      "list_item_span": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.97,
+        "probabilities": {
+          "start the bedtime routine": 0.02,
+          "none": 0.98
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 5781,
+      "output_tokens": 1374
+    }
+  }
+}

@@ -1,0 +1,293 @@
+{
+  "utterance": "turn on the thing in the corner",
+  "expected": "low confidence -> clarify",
+  "spoken_from_area": "kitchen",
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "command",
+        "confidence": 1.0,
+        "probabilities": {
+          "cancel": 0.0,
+          "command": 1.0,
+          "information": 0.0,
+          "query": 0.0,
+          "unclear": 0.0
+        }
+      },
+      "compound": {
+        "type": "noul",
+        "noul": 0.05
+      },
+      "scope": {
+        "type": "choice",
+        "choice": "single",
+        "confidence": 0.95,
+        "probabilities": {
+          "area": 0.03,
+          "floor": 0.0,
+          "single": 0.97,
+          "not_a_target": 0.0,
+          "whole_house": 0.0
+        }
+      },
+      "here_relative": {
+        "type": "noul",
+        "noul": 0.77
+      },
+      "change_direction": {
+        "type": "choice",
+        "choice": "no_numeric",
+        "confidence": 0.98,
+        "probabilities": {
+          "no_numeric": 0.99,
+          "absolute": 0.0,
+          "increase": 0.01,
+          "decrease": 0.0
+        }
+      },
+      "magnitude": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "confidence": 0.96,
+        "probabilities": {
+          "maximum": 0.0,
+          "not_applicable": 0.97,
+          "slight": 0.0,
+          "large": 0.0,
+          "moderate": 0.03
+        }
+      },
+      "query_kind": {
+        "type": "choice",
+        "choice": "not_a_query",
+        "confidence": 1.0,
+        "probabilities": {
+          "count": 0.0,
+          "time_or_date": 0.0,
+          "temperature": 0.0,
+          "device_state": 0.0,
+          "not_a_query": 1.0,
+          "needs_prose": 0.0
+        }
+      },
+      "risky": {
+        "type": "noul",
+        "noul": 0.05
+      },
+      "target_area": {
+        "type": "choice",
+        "choice": "kitchen",
+        "confidence": 0.7,
+        "probabilities": {
+          "office": 0.0,
+          "bedroom": 0.0,
+          "kitchen": 0.74,
+          "living_room": 0.01,
+          "hall": 0.0,
+          "kids_room": 0.0,
+          "bathroom": 0.0,
+          "no_area": 0.25,
+          "garage": 0.0
+        }
+      },
+      "target_entity": {
+        "type": "choice",
+        "choice": "no_single_entity",
+        "confidence": 0.53,
+        "probabilities": {
+          "light.office_desk": 0.01,
+          "script.bedtime": 0.0,
+          "media_player.living_room_speaker": 0.0,
+          "light.bathroom": 0.0,
+          "cover.bedroom_blinds": 0.0,
+          "light.lr_ceiling": 0.0,
+          "switch.coffee_maker": 0.12,
+          "lock.front_door": 0.0,
+          "binary_sensor.bathroom_window": 0.0,
+          "climate.living_room": 0.0,
+          "light.lr_floor_lamp": 0.03,
+          "media_player.tv": 0.01,
+          "lock.office_door": 0.0,
+          "light.kids_ceiling": 0.0,
+          "light.hall": 0.01,
+          "light.bedside_lamp": 0.0,
+          "sensor.kitchen_temperature": 0.0,
+          "light.kitchen_under_cabinet": 0.23,
+          "scene.movie_night": 0.0,
+          "cover.lr_blinds": 0.0,
+          "vacuum.downstairs": 0.0,
+          "cover.office_blinds": 0.0,
+          "cover.garage_door": 0.0,
+          "light.kitchen_ceiling": 0.01,
+          "light.bedroom_ceiling": 0.0,
+          "no_single_entity": 0.56,
+          "fan.bedroom": 0.0,
+          "switch.dishwasher": 0.01,
+          "binary_sensor.front_door_contact": 0.0,
+          "scene.good_morning": 0.0
+        }
+      },
+      "target_domain": {
+        "type": "choice",
+        "choice": "light",
+        "confidence": 0.65,
+        "probabilities": {
+          "binary_sensor": 0.0,
+          "fan": 0.0,
+          "sensor": 0.0,
+          "lock": 0.0,
+          "media_player": 0.0,
+          "light": 0.6900000000000001,
+          "scene": 0.0,
+          "script": 0.0,
+          "climate": 0.0,
+          "cover": 0.0,
+          "switch": 0.19,
+          "vacuum": 0.0,
+          "none": 0.12
+        }
+      },
+      "action_climate": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.57,
+        "probabilities": {
+          "cooler": 0.0,
+          "turn_on": 0.35,
+          "turn_off": 0.0,
+          "not_targeted": 0.64,
+          "warmer": 0.01,
+          "set_mode": 0.0,
+          "set_temperature": 0.0
+        }
+      },
+      "action_cover": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.5,
+        "probabilities": {
+          "open": 0.24,
+          "close": 0.15,
+          "set_position": 0.01,
+          "not_targeted": 0.6,
+          "stop": 0.0
+        }
+      },
+      "action_fan": {
+        "type": "choice",
+        "choice": "turn_on",
+        "confidence": 0.78,
+        "probabilities": {
+          "turn_on": 0.8200000000000001,
+          "set_speed": 0.0,
+          "not_targeted": 0.18,
+          "turn_off": 0.0,
+          "faster": 0.0,
+          "slower": 0.0
+        }
+      },
+      "action_light": {
+        "type": "choice",
+        "choice": "turn_on",
+        "confidence": 0.99,
+        "probabilities": {
+          "turn_on": 0.99,
+          "turn_off": 0.0,
+          "dimmer": 0.0,
+          "set_color": 0.0,
+          "not_targeted": 0.01,
+          "brighter": 0.0,
+          "set_brightness": 0.0,
+          "toggle": 0.0
+        }
+      },
+      "action_lock": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.83,
+        "probabilities": {
+          "lock": 0.08,
+          "not_targeted": 0.89,
+          "unlock": 0.03
+        }
+      },
+      "action_media_player": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.46,
+        "probabilities": {
+          "not_targeted": 0.51,
+          "previous": 0.0,
+          "mute": 0.0,
+          "play": 0.39,
+          "next": 0.0,
+          "stop": 0.01,
+          "set_volume": 0.0,
+          "louder": 0.06,
+          "quieter": 0.0,
+          "unmute": 0.02,
+          "search_and_play": 0.01,
+          "pause": 0.0
+        }
+      },
+      "action_scene": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.81,
+        "probabilities": {
+          "activate": 0.1,
+          "not_targeted": 0.9
+        }
+      },
+      "action_script": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.96,
+        "probabilities": {
+          "not_targeted": 0.98,
+          "run": 0.02
+        }
+      },
+      "action_switch": {
+        "type": "choice",
+        "choice": "turn_on",
+        "confidence": 0.89,
+        "probabilities": {
+          "turn_on": 0.92,
+          "turn_off": 0.0,
+          "not_targeted": 0.08,
+          "toggle": 0.0
+        }
+      },
+      "action_vacuum": {
+        "type": "choice",
+        "choice": "start",
+        "confidence": 0.47,
+        "probabilities": {
+          "clean_area": 0.02,
+          "not_targeted": 0.37,
+          "return_to_base": 0.01,
+          "start": 0.6
+        }
+      },
+      "media_query_span": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 1.0,
+        "probabilities": {
+          "the corner": 0.0,
+          "turn": 0.0,
+          "the thing": 0.0,
+          "none": 1.0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 6496,
+      "output_tokens": 1531
+    }
+  }
+}

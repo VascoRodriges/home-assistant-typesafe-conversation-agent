@@ -1,0 +1,106 @@
+[
+  [
+    "turn on the study lamp",
+    "command light.study_lamp turn_on"
+  ],
+  [
+    "it's too dark in the study",
+    "command light turn_on/brighter"
+  ],
+  [
+    "open the side door",
+    "command cover.side_door open"
+  ],
+  [
+    "is the side door open?",
+    "query device_state"
+  ],
+  [
+    "set the upper level thermostat to 70",
+    "command climate.zone_two set_temperature 70"
+  ],
+  [
+    "set the thermostat to 70",
+    "AMBIGUOUS: two zones -> clarify or name the target"
+  ],
+  [
+    "make it cooler upstairs",
+    "command climate cooler (area named like a floor)"
+  ],
+  [
+    "what's the temperature on the upper level?",
+    "query temperature"
+  ],
+  [
+    "how humid is it on the lower level?",
+    "query device_state sensor humidity"
+  ],
+  [
+    "start the morning routine",
+    "command script.routine_morning run"
+  ],
+  [
+    "run the evening routine",
+    "command script.routine_evening run"
+  ],
+  [
+    "set up guest mode",
+    "command script.routine_guest run"
+  ],
+  [
+    "start movie mode",
+    "command script.routine_movie run"
+  ],
+  [
+    "start the bedtime routine",
+    "command script.routine_bedtime run"
+  ],
+  [
+    "switch to away mode",
+    "command script.routine_away run"
+  ],
+  [
+    "start party mode",
+    "command script.routine_party run"
+  ],
+  [
+    "start the robot cleaner",
+    "command vacuum.cleaner start"
+  ],
+  [
+    "send the cleaner back to its dock",
+    "command vacuum return_to_base"
+  ],
+  [
+    "play some jazz in the study",
+    "command media_player.study_speaker search_and_play"
+  ],
+  [
+    "turn the loft speaker down",
+    "command media_player.loft_speaker quieter"
+  ],
+  [
+    "turn off the workshop extractor",
+    "command switch.workshop_extractor turn_off"
+  ],
+  [
+    "add milk to the shopping list",
+    "command todo.list_one add_item 'milk'"
+  ],
+  [
+    "what's the weather",
+    "query needs_prose OR information"
+  ],
+  [
+    "turn off the study lamp and start the cleaner",
+    "compound n=2"
+  ],
+  [
+    "who won the world cup in 1998",
+    "information"
+  ],
+  [
+    "turn off everything",
+    "whole_house"
+  ]
+]

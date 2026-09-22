@@ -1,0 +1,335 @@
+{
+  "utterance": "make it cooler upstairs",
+  "expected": "command climate cooler (area named like a floor)",
+  "spoken_from_area": "area_one",
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "command",
+        "confidence": 1.0,
+        "probabilities": {
+          "unclear": 0.0,
+          "cancel": 0.0,
+          "command": 1.0,
+          "information": 0.0,
+          "query": 0.0
+        }
+      },
+      "compound": {
+        "type": "noul",
+        "noul": 0.05
+      },
+      "scope": {
+        "type": "choice",
+        "choice": "floor",
+        "confidence": 0.87,
+        "probabilities": {
+          "area": 0.0,
+          "floor": 0.9,
+          "not_a_target": 0.0,
+          "single": 0.1,
+          "whole_house": 0.0
+        }
+      },
+      "here_relative": {
+        "type": "noul",
+        "noul": 0.15
+      },
+      "change_direction": {
+        "type": "choice",
+        "choice": "decrease",
+        "confidence": 0.99,
+        "probabilities": {
+          "no_numeric": 0.0,
+          "increase": 0.0,
+          "decrease": 1.0,
+          "absolute": 0.0
+        }
+      },
+      "magnitude": {
+        "type": "choice",
+        "choice": "moderate",
+        "confidence": 0.99,
+        "probabilities": {
+          "maximum": 0.0,
+          "moderate": 0.99,
+          "large": 0.0,
+          "not_applicable": 0.0,
+          "slight": 0.01
+        }
+      },
+      "query_kind": {
+        "type": "choice",
+        "choice": "not_a_query",
+        "confidence": 0.98,
+        "probabilities": {
+          "device_state": 0.0,
+          "time_or_date": 0.0,
+          "needs_prose": 0.0,
+          "count": 0.0,
+          "temperature": 0.01,
+          "not_a_query": 0.99
+        }
+      },
+      "risky": {
+        "type": "noul",
+        "noul": 0.04
+      },
+      "target_area": {
+        "type": "choice",
+        "choice": "upper_level",
+        "confidence": 0.85,
+        "probabilities": {
+          "area_three": 0.08,
+          "yard": 0.0,
+          "area_one": 0.0,
+          "lower_level": 0.0,
+          "area_two": 0.0,
+          "area_four": 0.0,
+          "no_area": 0.04,
+          "upper_level": 0.88
+        }
+      },
+      "target_entity": {
+        "type": "choice",
+        "choice": "climate.zone_two",
+        "confidence": 0.89,
+        "probabilities": {
+          "todo.list_one": 0.0,
+          "media_player.loft_speaker": 0.0,
+          "weather.forecast_home": 0.0,
+          "script.routine_away": 0.0,
+          "script.routine_evening": 0.0,
+          "no_single_entity": 0.1,
+          "climate.zone_two": 0.9,
+          "script.routine_party": 0.0,
+          "sensor.zone_two_temperature": 0.0,
+          "switch.workshop_extractor": 0.0,
+          "script.routine_movie": 0.0,
+          "climate.zone_one": 0.0,
+          "sensor.zone_one_temperature": 0.0,
+          "sensor.zone_one_humidity": 0.0,
+          "weather.local_station": 0.0,
+          "script.routine_guest": 0.0,
+          "sensor.zone_two_humidity": 0.0,
+          "light.study_lamp": 0.0,
+          "script.routine_morning": 0.0,
+          "cover.side_door": 0.0,
+          "vacuum.cleaner": 0.0,
+          "script.routine_focus": 0.0,
+          "media_player.study_speaker": 0.0,
+          "script.routine_bedtime": 0.0
+        }
+      },
+      "target_domain": {
+        "type": "choice",
+        "choice": "climate",
+        "confidence": 1.0,
+        "probabilities": {
+          "cover": 0.0,
+          "sensor": 0.0,
+          "vacuum": 0.0,
+          "media_player": 0.0,
+          "climate": 1.0,
+          "switch": 0.0,
+          "none": 0.0,
+          "todo": 0.0,
+          "weather": 0.0,
+          "light": 0.0,
+          "script": 0.0
+        }
+      },
+      "action_climate": {
+        "type": "choice",
+        "choice": "cooler",
+        "confidence": 1.0,
+        "probabilities": {
+          "set_temperature": 0.0,
+          "not_targeted": 0.0,
+          "cooler": 1.0,
+          "set_mode": 0.0,
+          "turn_off": 0.0,
+          "turn_on": 0.0,
+          "warmer": 0.0
+        }
+      },
+      "action_cover": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.89,
+        "probabilities": {
+          "open": 0.03,
+          "stop": 0.0,
+          "not_targeted": 0.91,
+          "set_position": 0.0,
+          "close": 0.06
+        }
+      },
+      "action_light": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.74,
+        "probabilities": {
+          "not_targeted": 0.78,
+          "toggle": 0.0,
+          "dimmer": 0.01,
+          "turn_off": 0.0,
+          "turn_on": 0.0,
+          "brighter": 0.0,
+          "set_color": 0.21,
+          "set_brightness": 0.0
+        }
+      },
+      "action_media_player": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.85,
+        "probabilities": {
+          "play": 0.0,
+          "not_targeted": 0.87,
+          "search_and_play": 0.0,
+          "next": 0.0,
+          "quieter": 0.12,
+          "unmute": 0.0,
+          "stop": 0.0,
+          "set_volume": 0.0,
+          "louder": 0.01,
+          "mute": 0.0,
+          "previous": 0.0,
+          "pause": 0.0
+        }
+      },
+      "action_script": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.98,
+        "probabilities": {
+          "not_targeted": 0.99,
+          "run": 0.01
+        }
+      },
+      "action_switch": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.95,
+        "probabilities": {
+          "not_targeted": 0.96,
+          "turn_off": 0.03,
+          "toggle": 0.0,
+          "turn_on": 0.01
+        }
+      },
+      "action_todo": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.99,
+        "probabilities": {
+          "complete_item": 0.0,
+          "not_targeted": 1.0,
+          "remove_item": 0.0,
+          "add_item": 0.0
+        }
+      },
+      "action_vacuum": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.98,
+        "probabilities": {
+          "not_targeted": 0.99,
+          "return_to_base": 0.0,
+          "start": 0.0,
+          "clean_area": 0.01
+        }
+      },
+      "color_pick": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.99,
+        "probabilities": {
+          "beige": 0.0,
+          "khaki": 0.0,
+          "salmon": 0.0,
+          "teal": 0.0,
+          "crimson": 0.0,
+          "wheat": 0.0,
+          "darkorange": 0.0,
+          "azure": 0.0,
+          "tan": 0.0,
+          "tomato": 0.0,
+          "lightpink": 0.0,
+          "lavender": 0.0,
+          "none": 1.0,
+          "lightgreen": 0.0,
+          "soft_white": 0.0,
+          "darkgreen": 0.0,
+          "darkblue": 0.0,
+          "purple": 0.0,
+          "pink": 0.0,
+          "darkred": 0.0,
+          "hotpink": 0.0,
+          "olive": 0.0,
+          "daylight": 0.0,
+          "black": 0.0,
+          "yellow": 0.0,
+          "lightyellow": 0.0,
+          "skyblue": 0.0,
+          "aqua": 0.0,
+          "plum": 0.0,
+          "indigo": 0.0,
+          "green": 0.0,
+          "peachpuff": 0.0,
+          "turquoise": 0.0,
+          "chocolate": 0.0,
+          "blue": 0.0,
+          "mintcream": 0.0,
+          "silver": 0.0,
+          "bisque": 0.0,
+          "red": 0.0,
+          "gold": 0.0,
+          "lime": 0.0,
+          "orange": 0.0,
+          "ivory": 0.0,
+          "grey": 0.0,
+          "seagreen": 0.0,
+          "warm_white": 0.0,
+          "navy": 0.0,
+          "cool_white": 0.0,
+          "lightblue": 0.0,
+          "maroon": 0.0,
+          "magenta": 0.0,
+          "cyan": 0.0,
+          "coral": 0.0,
+          "neutral_white": 0.0,
+          "orchid": 0.0,
+          "white": 0.0,
+          "violet": 0.0,
+          "brown": 0.0
+        }
+      },
+      "media_query_span": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.99,
+        "probabilities": {
+          "none": 1.0,
+          "make it cooler upstairs": 0.0
+        }
+      },
+      "list_item_span": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.98,
+        "probabilities": {
+          "none": 0.99,
+          "make it cooler upstairs": 0.01
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 6338,
+      "output_tokens": 1850
+    }
+  }
+}

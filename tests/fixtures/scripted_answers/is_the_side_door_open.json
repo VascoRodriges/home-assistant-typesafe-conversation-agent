@@ -1,0 +1,270 @@
+{
+  "utterance": "is the side door open?",
+  "expected": "query device_state",
+  "spoken_from_area": "area_one",
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "query",
+        "confidence": 1.0,
+        "probabilities": {
+          "unclear": 0.0,
+          "command": 0.0,
+          "information": 0.0,
+          "query": 1.0,
+          "cancel": 0.0
+        }
+      },
+      "compound": {
+        "type": "noul",
+        "noul": 0.03
+      },
+      "scope": {
+        "type": "choice",
+        "choice": "single",
+        "confidence": 1.0,
+        "probabilities": {
+          "whole_house": 0.0,
+          "area": 0.0,
+          "not_a_target": 0.0,
+          "single": 1.0,
+          "floor": 0.0
+        }
+      },
+      "here_relative": {
+        "type": "noul",
+        "noul": 0.3
+      },
+      "change_direction": {
+        "type": "choice",
+        "choice": "no_numeric",
+        "confidence": 0.74,
+        "probabilities": {
+          "increase": 0.01,
+          "absolute": 0.18,
+          "no_numeric": 0.81,
+          "decrease": 0.0
+        }
+      },
+      "magnitude": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "confidence": 1.0,
+        "probabilities": {
+          "not_applicable": 1.0,
+          "large": 0.0,
+          "maximum": 0.0,
+          "slight": 0.0,
+          "moderate": 0.0
+        }
+      },
+      "query_kind": {
+        "type": "choice",
+        "choice": "device_state",
+        "confidence": 1.0,
+        "probabilities": {
+          "not_a_query": 0.0,
+          "device_state": 1.0,
+          "time_or_date": 0.0,
+          "count": 0.0,
+          "needs_prose": 0.0,
+          "temperature": 0.0
+        }
+      },
+      "risky": {
+        "type": "noul",
+        "noul": 0.11
+      },
+      "target_area": {
+        "type": "choice",
+        "choice": "area_two",
+        "confidence": 0.6,
+        "probabilities": {
+          "area_three": 0.0,
+          "yard": 0.0,
+          "area_four": 0.0,
+          "upper_level": 0.0,
+          "area_two": 0.66,
+          "area_one": 0.06,
+          "lower_level": 0.0,
+          "no_area": 0.28
+        }
+      },
+      "target_entity": {
+        "type": "choice",
+        "choice": "cover.side_door",
+        "confidence": 1.0,
+        "probabilities": {
+          "weather.forecast_home": 0.0,
+          "light.study_lamp": 0.0,
+          "todo.list_one": 0.0,
+          "cover.side_door": 1.0,
+          "script.routine_evening": 0.0,
+          "vacuum.cleaner": 0.0,
+          "sensor.zone_one_humidity": 0.0,
+          "sensor.zone_two_humidity": 0.0,
+          "sensor.zone_one_temperature": 0.0,
+          "script.routine_movie": 0.0,
+          "script.routine_focus": 0.0,
+          "weather.local_station": 0.0,
+          "script.routine_away": 0.0,
+          "climate.zone_two": 0.0,
+          "script.routine_bedtime": 0.0,
+          "script.routine_morning": 0.0,
+          "climate.zone_one": 0.0,
+          "sensor.zone_two_temperature": 0.0,
+          "script.routine_guest": 0.0,
+          "script.routine_party": 0.0,
+          "media_player.loft_speaker": 0.0,
+          "no_single_entity": 0.0,
+          "switch.workshop_extractor": 0.0,
+          "media_player.study_speaker": 0.0
+        }
+      },
+      "target_domain": {
+        "type": "choice",
+        "choice": "cover",
+        "confidence": 1.0,
+        "probabilities": {
+          "weather": 0.0,
+          "todo": 0.0,
+          "light": 0.0,
+          "climate": 0.0,
+          "switch": 0.0,
+          "vacuum": 0.0,
+          "sensor": 0.0,
+          "cover": 1.0,
+          "none": 0.0,
+          "media_player": 0.0,
+          "script": 0.0
+        }
+      },
+      "action_climate": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 1.0,
+        "probabilities": {
+          "turn_on": 0.0,
+          "set_mode": 0.0,
+          "not_targeted": 1.0,
+          "cooler": 0.0,
+          "set_temperature": 0.0,
+          "warmer": 0.0,
+          "turn_off": 0.0
+        }
+      },
+      "action_cover": {
+        "type": "choice",
+        "choice": "open",
+        "confidence": 0.23,
+        "probabilities": {
+          "not_targeted": 0.34,
+          "set_position": 0.18,
+          "stop": 0.01,
+          "open": 0.38,
+          "close": 0.09
+        }
+      },
+      "action_light": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 1.0,
+        "probabilities": {
+          "set_color": 0.0,
+          "toggle": 0.0,
+          "dimmer": 0.0,
+          "not_targeted": 1.0,
+          "turn_on": 0.0,
+          "turn_off": 0.0,
+          "brighter": 0.0,
+          "set_brightness": 0.0
+        }
+      },
+      "action_media_player": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 1.0,
+        "probabilities": {
+          "pause": 0.0,
+          "not_targeted": 1.0,
+          "unmute": 0.0,
+          "search_and_play": 0.0,
+          "play": 0.0,
+          "mute": 0.0,
+          "louder": 0.0,
+          "stop": 0.0,
+          "next": 0.0,
+          "set_volume": 0.0,
+          "previous": 0.0,
+          "quieter": 0.0
+        }
+      },
+      "action_script": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 1.0,
+        "probabilities": {
+          "run": 0.0,
+          "not_targeted": 1.0
+        }
+      },
+      "action_switch": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.99,
+        "probabilities": {
+          "toggle": 0.0,
+          "not_targeted": 1.0,
+          "turn_on": 0.0,
+          "turn_off": 0.0
+        }
+      },
+      "action_todo": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 1.0,
+        "probabilities": {
+          "complete_item": 0.0,
+          "not_targeted": 1.0,
+          "remove_item": 0.0,
+          "add_item": 0.0
+        }
+      },
+      "action_vacuum": {
+        "type": "choice",
+        "choice": "not_targeted",
+        "confidence": 0.99,
+        "probabilities": {
+          "return_to_base": 0.01,
+          "not_targeted": 0.99,
+          "clean_area": 0.0,
+          "start": 0.0
+        }
+      },
+      "media_query_span": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.98,
+        "probabilities": {
+          "is the side door open": 0.01,
+          "none": 0.99
+        }
+      },
+      "list_item_span": {
+        "type": "choice",
+        "choice": "none",
+        "confidence": 0.96,
+        "probabilities": {
+          "is the side door open": 0.02,
+          "none": 0.98
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 5785,
+      "output_tokens": 1377
+    }
+  }
+}

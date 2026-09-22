@@ -1,0 +1,43 @@
+{
+  "areas": [
+    {"id": "kitchen", "name": "Kitchen", "floor": "Ground Floor"},
+    {"id": "living_room", "name": "Living Room", "floor": "Ground Floor"},
+    {"id": "hall", "name": "Hall", "floor": "Ground Floor"},
+    {"id": "office", "name": "Office", "floor": "Ground Floor"},
+    {"id": "bedroom", "name": "Bedroom", "floor": "First Floor"},
+    {"id": "kids_room", "name": "Kids Room", "floor": "First Floor"},
+    {"id": "bathroom", "name": "Bathroom", "floor": "First Floor"},
+    {"id": "garage", "name": "Garage", "floor": "Ground Floor"}
+  ],
+  "entities": [
+    {"id": "light.kitchen_ceiling", "name": "Kitchen Ceiling", "area": "kitchen", "domain": "light", "state": "on", "attrs": {"brightness": 220}},
+    {"id": "light.kitchen_under_cabinet", "name": "Under Cabinet", "area": "kitchen", "domain": "light", "state": "off"},
+    {"id": "switch.coffee_maker", "name": "Coffee Maker", "also": "espresso machine", "area": "kitchen", "domain": "switch", "state": "off"},
+    {"id": "switch.dishwasher", "name": "Dishwasher", "area": "kitchen", "domain": "switch", "state": "off"},
+    {"id": "sensor.kitchen_temperature", "name": "Kitchen Temperature", "area": "kitchen", "domain": "sensor", "state": "21.4", "attrs": {"unit_of_measurement": "°C", "device_class": "temperature"}},
+    {"id": "light.lr_ceiling", "name": "Living Room Ceiling", "area": "living_room", "domain": "light", "state": "on", "attrs": {"brightness": 180}},
+    {"id": "light.lr_floor_lamp", "name": "Floor Lamp", "area": "living_room", "domain": "light", "state": "on", "attrs": {"brightness": 90}},
+    {"id": "cover.lr_blinds", "name": "Living Room Blinds", "also": "living room shades", "area": "living_room", "domain": "cover", "state": "open", "attrs": {"current_position": 100, "device_class": "blind"}},
+    {"id": "media_player.living_room_speaker", "name": "Living Room Speaker", "area": "living_room", "domain": "media_player", "state": "playing", "attrs": {"volume_level": 0.4, "media_title": "Blue in Green"}},
+    {"id": "media_player.tv", "name": "TV", "area": "living_room", "domain": "media_player", "state": "off"},
+    {"id": "climate.living_room", "name": "Thermostat", "area": "living_room", "domain": "climate", "state": "heat", "attrs": {"current_temperature": 20.5, "temperature": 21.0, "temperature_unit": "°C"}},
+    {"id": "lock.front_door", "name": "Front Door", "area": "hall", "domain": "lock", "state": "locked"},
+    {"id": "light.hall", "name": "Hall Light", "area": "hall", "domain": "light", "state": "off"},
+    {"id": "binary_sensor.front_door_contact", "name": "Front Door Contact", "area": "hall", "domain": "binary_sensor", "state": "off", "attrs": {"device_class": "door"}},
+    {"id": "light.office_desk", "name": "Desk Lamp", "area": "office", "domain": "light", "state": "off"},
+    {"id": "lock.office_door", "name": "Office Door", "area": "office", "domain": "lock", "state": "unlocked"},
+    {"id": "cover.office_blinds", "name": "Office Blinds", "area": "office", "domain": "cover", "state": "closed", "attrs": {"current_position": 0, "device_class": "blind"}},
+    {"id": "light.bedroom_ceiling", "name": "Bedroom Ceiling", "area": "bedroom", "domain": "light", "state": "off"},
+    {"id": "light.bedside_lamp", "name": "Bedside Lamp", "area": "bedroom", "domain": "light", "state": "off"},
+    {"id": "fan.bedroom", "name": "Bedroom Fan", "area": "bedroom", "domain": "fan", "state": "off", "attrs": {"percentage": 0}},
+    {"id": "cover.bedroom_blinds", "name": "Bedroom Blinds", "area": "bedroom", "domain": "cover", "state": "open", "attrs": {"current_position": 100, "device_class": "blind"}},
+    {"id": "light.kids_ceiling", "name": "Kids Ceiling", "area": "kids_room", "domain": "light", "state": "off"},
+    {"id": "light.bathroom", "name": "Bathroom Light", "area": "bathroom", "domain": "light", "state": "off"},
+    {"id": "binary_sensor.bathroom_window", "name": "Bathroom Window", "area": "bathroom", "domain": "binary_sensor", "state": "on", "attrs": {"device_class": "window"}},
+    {"id": "cover.garage_door", "name": "Garage Door", "area": "garage", "domain": "cover", "state": "closed", "attrs": {"current_position": 0, "device_class": "garage"}},
+    {"id": "vacuum.downstairs", "name": "Robot Vacuum", "area": "garage", "domain": "vacuum", "state": "docked"},
+    {"id": "scene.movie_night", "name": "Movie Night", "domain": "scene", "state": "unknown"},
+    {"id": "scene.good_morning", "name": "Good Morning", "domain": "scene", "state": "unknown"},
+    {"id": "script.bedtime", "name": "Bedtime", "also": "goodnight routine", "domain": "script", "state": "off"}
+  ]
+}

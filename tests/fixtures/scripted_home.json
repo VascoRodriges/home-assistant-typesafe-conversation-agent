@@ -1,0 +1,221 @@
+{
+  "areas": [
+    {
+      "id": "area_one",
+      "name": "Study",
+      "floor": "Main Level"
+    },
+    {
+      "id": "area_two",
+      "name": "Workshop",
+      "floor": "Main Level"
+    },
+    {
+      "id": "area_three",
+      "name": "Loft",
+      "floor": "Upper Level"
+    },
+    {
+      "id": "area_four",
+      "name": "Cellar"
+    },
+    {
+      "id": "upper_level",
+      "name": "Upper Level"
+    },
+    {
+      "id": "lower_level",
+      "name": "Lower Level"
+    },
+    {
+      "id": "yard",
+      "name": "Yard",
+      "floor": "Outside"
+    }
+  ],
+  "entities": [
+    {
+      "id": "script.routine_morning",
+      "name": "Start the morning routine",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.routine_evening",
+      "name": "Start the evening routine",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.routine_guest",
+      "name": "Set up the guest mode",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.routine_movie",
+      "name": "Start movie mode",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.routine_bedtime",
+      "name": "Start the bedtime routine",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.routine_away",
+      "name": "Switch to away mode",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.routine_focus",
+      "name": "Switch to focus mode",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.routine_party",
+      "name": "Start party mode",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "climate.zone_one",
+      "name": "Lower Level Thermostat",
+      "area": "lower_level",
+      "domain": "climate",
+      "state": "cool",
+      "attrs": {
+        "current_temperature": 73,
+        "temperature": 72,
+        "temperature_unit": "\u00b0F"
+      }
+    },
+    {
+      "id": "climate.zone_two",
+      "name": "Upper Level Thermostat",
+      "area": "upper_level",
+      "domain": "climate",
+      "state": "cool",
+      "attrs": {
+        "current_temperature": 70,
+        "temperature": 71,
+        "temperature_unit": "\u00b0F"
+      }
+    },
+    {
+      "id": "sensor.zone_one_temperature",
+      "name": "Lower Level Temperature",
+      "area": "lower_level",
+      "domain": "sensor",
+      "state": "72.6",
+      "attrs": {
+        "unit_of_measurement": "\u00b0F",
+        "device_class": "temperature"
+      }
+    },
+    {
+      "id": "sensor.zone_one_humidity",
+      "name": "Lower Level Humidity",
+      "area": "lower_level",
+      "domain": "sensor",
+      "state": "52",
+      "attrs": {
+        "unit_of_measurement": "%",
+        "device_class": "humidity"
+      }
+    },
+    {
+      "id": "sensor.zone_two_temperature",
+      "name": "Upper Level Temperature",
+      "area": "upper_level",
+      "domain": "sensor",
+      "state": "69.6",
+      "attrs": {
+        "unit_of_measurement": "\u00b0F",
+        "device_class": "temperature"
+      }
+    },
+    {
+      "id": "sensor.zone_two_humidity",
+      "name": "Upper Level Humidity",
+      "area": "upper_level",
+      "domain": "sensor",
+      "state": "58",
+      "attrs": {
+        "unit_of_measurement": "%",
+        "device_class": "humidity"
+      }
+    },
+    {
+      "id": "light.study_lamp",
+      "name": "Study Lamp",
+      "area": "area_one",
+      "domain": "light",
+      "state": "off"
+    },
+    {
+      "id": "cover.side_door",
+      "name": "Side Door",
+      "area": "area_two",
+      "domain": "cover",
+      "state": "closed",
+      "attrs": {
+        "current_position": 0,
+        "device_class": "door"
+      }
+    },
+    {
+      "id": "media_player.study_speaker",
+      "name": "Study Speaker",
+      "area": "area_one",
+      "domain": "media_player",
+      "state": "idle"
+    },
+    {
+      "id": "media_player.loft_speaker",
+      "name": "Loft Speaker",
+      "area": "area_three",
+      "domain": "media_player",
+      "state": "idle",
+      "attrs": {
+        "volume_level": 0.3
+      }
+    },
+    {
+      "id": "vacuum.cleaner",
+      "name": "Robot Cleaner",
+      "area": "area_one",
+      "domain": "vacuum",
+      "state": "docked"
+    },
+    {
+      "id": "switch.workshop_extractor",
+      "name": "Workshop Extractor",
+      "area": "area_two",
+      "domain": "switch",
+      "state": "on"
+    },
+    {
+      "id": "todo.list_one",
+      "name": "Shopping List",
+      "domain": "todo",
+      "state": "0"
+    },
+    {
+      "id": "weather.forecast_home",
+      "name": "Forecast Home",
+      "domain": "weather",
+      "state": "rainy"
+    },
+    {
+      "id": "weather.local_station",
+      "name": "Local Station",
+      "domain": "weather",
+      "state": "partlycloudy"
+    }
+  ]
+}

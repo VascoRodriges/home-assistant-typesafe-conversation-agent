@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "TypeSafe credentials",
+        "description": "Create an API key at https://console.typesafe.ai/",
+        "data": {
+          "api_key": "TypeSafe API key",
+          "model": "Model"
+        }
+      },
+      "llm": {
+        "title": "Language model (optional)",
+        "description": "Jev decides every command and query on its own. A language model is only used to split requests that contain several commands, and to answer general questions. Leave this blank to skip it.",
+        "data": {
+          "llm_backend": "Backend",
+          "llm_base_url": "Base URL",
+          "llm_model": "Model",
+          "llm_api_key": "API key"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter your TypeSafe API key",
+        "data": { "api_key": "TypeSafe API key" }
+      }
+    },
+    "error": {
+      "invalid_auth": "That API key was rejected.",
+      "cannot_connect": "Could not reach the TypeSafe API.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "config_subentries": {
+    "conversation": {
+      "initiate_flow": {
+        "user": "Add a conversation agent",
+        "reconfigure": "Reconfigure this conversation agent"
+      },
+      "entry_type": "Conversation agent",
+      "step": {
+        "set_options": {
+          "data": {
+            "name": "Name",
+            "always_confirm_risky": "Always confirm before unlocking or opening",
+            "inline_entity_descriptions": "Describe every entity inside the question",
+            "bypass_local_intents": "Handle every command, including ones Home Assistant recognises"
+          },
+          "data_description": {
+            "always_confirm_risky": "Ask first before unlocking a door, opening a garage or disarming an alarm, however sure the model is. Turning this off lets confident requests through silently.",
+            "inline_entity_descriptions": "Costs roughly twice the tokens. Only worth turning on if the agent picks the wrong device.",
+            "bypass_local_intents": "By default Home Assistant's own sentence matcher keeps the phrasings it recognises, and only sends the rest here. Turn this on to send everything here instead."
+          }
+        }
+      }
+    }
+  }
+}
