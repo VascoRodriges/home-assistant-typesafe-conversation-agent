@@ -10,27 +10,27 @@
         "choice": "command",
         "confidence": 1.0,
         "probabilities": {
-          "query": 0.0,
+          "information": 0.0,
           "cancel": 0.0,
-          "unclear": 0.0,
+          "query": 0.0,
           "command": 1.0,
-          "information": 0.0
+          "unclear": 0.0
         }
       },
       "compound": {
         "type": "noul",
-        "noul": 0.11
+        "noul": 0.12
       },
       "scope": {
         "type": "choice",
         "choice": "single",
-        "confidence": 0.49,
+        "confidence": 0.47,
         "probabilities": {
-          "single": 0.6,
-          "floor": 0.0,
           "area": 0.0,
-          "whole_house": 0.37,
-          "not_a_target": 0.03
+          "whole_house": 0.39,
+          "not_a_target": 0.02,
+          "single": 0.59,
+          "floor": 0.0
         }
       },
       "here_relative": {
@@ -42,22 +42,22 @@
         "choice": "no_numeric",
         "confidence": 1.0,
         "probabilities": {
+          "increase": 0.0,
           "absolute": 0.0,
           "no_numeric": 1.0,
-          "increase": 0.0,
           "decrease": 0.0
         }
       },
       "magnitude": {
         "type": "choice",
         "choice": "not_applicable",
-        "confidence": 0.99,
+        "confidence": 1.0,
         "probabilities": {
-          "large": 0.0,
-          "moderate": 0.01,
+          "not_applicable": 1.0,
           "slight": 0.0,
           "maximum": 0.0,
-          "not_applicable": 0.99
+          "large": 0.0,
+          "moderate": 0.0
         }
       },
       "query_kind": {
@@ -65,31 +65,31 @@
         "choice": "not_a_query",
         "confidence": 1.0,
         "probabilities": {
-          "device_state": 0.0,
-          "needs_prose": 0.0,
-          "time_or_date": 0.0,
           "not_a_query": 1.0,
+          "needs_prose": 0.0,
+          "device_state": 0.0,
+          "count": 0.0,
           "temperature": 0.0,
-          "count": 0.0
+          "time_or_date": 0.0
         }
       },
       "risky": {
         "type": "noul",
-        "noul": 0.1
+        "noul": 0.15
       },
       "target_area": {
         "type": "choice",
-        "choice": "area_one",
-        "confidence": 0.45,
+        "choice": "no_area",
+        "confidence": 0.5,
         "probabilities": {
-          "area_four": 0.0,
-          "lower_level": 0.0,
-          "no_area": 0.48,
+          "area_two": 0.0,
           "area_three": 0.0,
-          "area_one": 0.52,
           "yard": 0.0,
+          "lower_level": 0.0,
+          "no_area": 0.5700000000000001,
           "upper_level": 0.0,
-          "area_two": 0.0
+          "area_four": 0.0,
+          "area_one": 0.43
         }
       },
       "target_entity": {
@@ -97,30 +97,34 @@
         "choice": "script.routine_evening",
         "confidence": 0.99,
         "probabilities": {
-          "script.routine_movie": 0.0,
+          "script.routine_guest": 0.0,
           "script.routine_morning": 0.0,
-          "todo.list_one": 0.0,
-          "media_player.loft_speaker": 0.0,
-          "cover.side_door": 0.0,
-          "script.routine_focus": 0.0,
-          "switch.workshop_extractor": 0.0,
-          "sensor.zone_one_temperature": 0.0,
-          "sensor.zone_two_temperature": 0.0,
-          "media_player.study_speaker": 0.0,
-          "weather.forecast_home": 0.0,
-          "climate.zone_two": 0.0,
           "script.routine_party": 0.0,
-          "climate.zone_one": 0.0,
-          "script.routine_evening": 0.99,
-          "script.routine_bedtime": 0.0,
-          "no_single_entity": 0.01,
-          "sensor.zone_two_humidity": 0.0,
-          "vacuum.cleaner": 0.0,
-          "weather.local_station": 0.0,
-          "light.study_lamp": 0.0,
-          "sensor.zone_one_humidity": 0.0,
           "script.routine_away": 0.0,
-          "script.routine_guest": 0.0
+          "weather.local_station": 0.0,
+          "switch.workshop_extractor": 0.0,
+          "script.routine_focus": 0.0,
+          "script.open_the_gate": 0.0,
+          "sensor.zone_one_humidity": 0.0,
+          "script.routine_bedtime": 0.0,
+          "script.security_arm_away": 0.0,
+          "todo.list_one": 0.0,
+          "script.routine_movie": 0.0,
+          "no_single_entity": 0.01,
+          "sensor.zone_one_temperature": 0.0,
+          "climate.zone_one": 0.0,
+          "script.security_arm_home": 0.0,
+          "script.routine_evening": 0.99,
+          "weather.forecast_home": 0.0,
+          "vacuum.cleaner": 0.0,
+          "sensor.zone_two_humidity": 0.0,
+          "climate.zone_two": 0.0,
+          "sensor.zone_two_temperature": 0.0,
+          "cover.side_door": 0.0,
+          "light.study_lamp": 0.0,
+          "media_player.study_speaker": 0.0,
+          "media_player.loft_speaker": 0.0,
+          "script.security_disarm": 0.0
         }
       },
       "target_domain": {
@@ -128,31 +132,31 @@
         "choice": "script",
         "confidence": 1.0,
         "probabilities": {
-          "climate": 0.0,
           "sensor": 0.0,
-          "switch": 0.0,
-          "script": 1.0,
-          "media_player": 0.0,
           "none": 0.0,
-          "todo": 0.0,
+          "media_player": 0.0,
+          "climate": 0.0,
+          "script": 1.0,
+          "switch": 0.0,
           "vacuum": 0.0,
           "cover": 0.0,
-          "light": 0.0,
-          "weather": 0.0
+          "weather": 0.0,
+          "todo": 0.0,
+          "light": 0.0
         }
       },
       "action_climate": {
         "type": "choice",
         "choice": "not_targeted",
-        "confidence": 0.6,
+        "confidence": 0.58,
         "probabilities": {
-          "set_temperature": 0.1,
-          "warmer": 0.12,
-          "not_targeted": 0.65,
-          "turn_off": 0.04,
-          "set_mode": 0.04,
-          "cooler": 0.03,
-          "turn_on": 0.02
+          "set_temperature": 0.12,
+          "turn_off": 0.05,
+          "cooler": 0.05,
+          "warmer": 0.09,
+          "set_mode": 0.03,
+          "turn_on": 0.01,
+          "not_targeted": 0.65
         }
       },
       "action_cover": {
@@ -160,45 +164,45 @@
         "choice": "close",
         "confidence": 0.39,
         "probabilities": {
-          "stop": 0.0,
-          "not_targeted": 0.49,
-          "set_position": 0.0,
           "close": 0.51,
-          "open": 0.0
+          "open": 0.0,
+          "stop": 0.0,
+          "set_position": 0.01,
+          "not_targeted": 0.48
         }
       },
       "action_light": {
         "type": "choice",
         "choice": "not_targeted",
-        "confidence": 0.4,
+        "confidence": 0.45,
         "probabilities": {
           "dimmer": 0.09,
-          "set_color": 0.0,
-          "toggle": 0.0,
-          "turn_on": 0.03,
-          "not_targeted": 0.48,
-          "turn_off": 0.39,
           "set_brightness": 0.01,
-          "brighter": 0.0
+          "not_targeted": 0.52,
+          "turn_on": 0.03,
+          "brighter": 0.0,
+          "turn_off": 0.35,
+          "set_color": 0.0,
+          "toggle": 0.0
         }
       },
       "action_media_player": {
         "type": "choice",
         "choice": "not_targeted",
-        "confidence": 0.72,
+        "confidence": 0.77,
         "probabilities": {
-          "quieter": 0.060000000000000005,
+          "not_targeted": 0.79,
+          "mute": 0.02,
+          "louder": 0.01,
+          "pause": 0.0,
           "unmute": 0.0,
           "previous": 0.0,
-          "pause": 0.0,
-          "set_volume": 0.01,
-          "louder": 0.0,
-          "not_targeted": 0.75,
-          "stop": 0.11,
-          "mute": 0.02,
-          "next": 0.0,
           "search_and_play": 0.0,
-          "play": 0.05
+          "quieter": 0.04,
+          "next": 0.0,
+          "play": 0.06,
+          "stop": 0.07,
+          "set_volume": 0.01
         }
       },
       "action_script": {
@@ -213,12 +217,12 @@
       "action_switch": {
         "type": "choice",
         "choice": "not_targeted",
-        "confidence": 0.37,
+        "confidence": 0.41,
         "probabilities": {
-          "turn_off": 0.44,
           "toggle": 0.01,
-          "not_targeted": 0.53,
-          "turn_on": 0.02
+          "turn_off": 0.42,
+          "turn_on": 0.02,
+          "not_targeted": 0.55
         }
       },
       "action_todo": {
@@ -226,21 +230,21 @@
         "choice": "not_targeted",
         "confidence": 0.99,
         "probabilities": {
-          "add_item": 0.01,
-          "not_targeted": 0.99,
           "complete_item": 0.0,
-          "remove_item": 0.0
+          "add_item": 0.01,
+          "remove_item": 0.0,
+          "not_targeted": 0.99
         }
       },
       "action_vacuum": {
         "type": "choice",
         "choice": "not_targeted",
-        "confidence": 0.68,
+        "confidence": 0.58,
         "probabilities": {
-          "return_to_base": 0.1,
-          "not_targeted": 0.76,
-          "clean_area": 0.0,
-          "start": 0.14
+          "clean_area": 0.01,
+          "not_targeted": 0.6799999999999999,
+          "return_to_base": 0.12,
+          "start": 0.19
         }
       },
       "media_query_span": {
@@ -248,8 +252,8 @@
         "choice": "none",
         "confidence": 0.98,
         "probabilities": {
-          "run the evening routine": 0.01,
-          "none": 0.99
+          "none": 0.99,
+          "run the evening routine": 0.01
         }
       },
       "list_item_span": {
@@ -257,14 +261,14 @@
         "choice": "none",
         "confidence": 0.98,
         "probabilities": {
-          "run the evening routine": 0.01,
-          "none": 0.99
+          "none": 0.99,
+          "run the evening routine": 0.01
         }
       }
     },
     "usage": {
-      "input_tokens": 5781,
-      "output_tokens": 1376
+      "input_tokens": 5983,
+      "output_tokens": 1417
     }
   }
 }

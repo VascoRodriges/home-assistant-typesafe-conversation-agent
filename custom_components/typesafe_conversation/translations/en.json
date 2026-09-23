@@ -16,7 +16,8 @@
           "llm_backend": "Backend",
           "llm_base_url": "Base URL",
           "llm_model": "Model",
-          "llm_api_key": "API key"
+          "llm_api_key": "API key",
+          "llm_timeout": "Answer timeout"
         }
       },
       "reauth_confirm": {

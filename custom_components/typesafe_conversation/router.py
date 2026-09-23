@@ -36,6 +36,7 @@ from .const import (
     NOUL_COMPOUND_LOW,
     NOUL_HERE_RELATIVE,
     NOUL_RISKY,
+    NOUL_RISKY_EXPLICIT,
     RISKY_ACTIONS,
     T_ACTION_PROBABILITY,
     T_AREA,
@@ -431,7 +432,13 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     _apply_arguments(plan, response, extraction, trace)
 
     # -- 5e. do not quietly unlock the house ---------------------------------
-    if risky >= NOUL_RISKY and action in RISKY_ACTIONS:
+    # The risky question is authoritative. An explicit unlock/open/disarm only
+    # lowers the bar; requiring one would exempt scripts, whose action is
+    # always "run", and security actions are commonly scripts.
+    risky_threshold = (
+        NOUL_RISKY_EXPLICIT if action in RISKY_ACTIONS else NOUL_RISKY
+    )
+    if risky >= risky_threshold:
         target_conf = (
             target_entity.confidence
             if target_entity is not None and target.entity is not None

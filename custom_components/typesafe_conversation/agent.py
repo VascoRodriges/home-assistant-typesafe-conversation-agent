@@ -59,12 +59,14 @@ class TypeSafeAgent:
         jev: SystemOneClient,
         llm: LLMBackend | None,
         settings: AgentSettings,
+        traces: Any = None,
     ) -> None:
         self.hass = hass
         self.catalog = catalog
         self.jev = jev
         self.llm = llm
         self.settings = settings
+        self._traces = traces
         self._questions_cache: tuple[int, bool, dict[str, Any]] | None = None
         self.continue_conversation = False
         """Set per request. Belongs to ConversationResult, not IntentResponse,
@@ -115,10 +117,46 @@ class TypeSafeAgent:
                 if a.floor_name
             },
         )
-        LOGGER.debug("Routed %r -> %s (%s)", text, plan.route, plan.reason)
+        record = {
+            "utterance": text,
+            "route": plan.route.value,
+            "reason": plan.reason,
+            "domain": plan.domain,
+            "action": plan.action,
+            "target": plan.target.entity.entity_id
+            if plan.target.entity is not None
+            else (
+                f"area:{plan.target.area_id}"
+                if plan.target.area_id
+                else ("whole_house" if plan.target.whole_house else None)
+            ),
+            "value": plan.value,
+            "relative_step": plan.relative_step,
+            "text_slot": plan.text_slot,
+            **plan.trace,
+        }
+        LOGGER.debug(
+            "Routed %r -> %s (%s) in %sms, %s input tokens",
+            text,
+            plan.route.value,
+            plan.reason,
+            plan.trace.get("latency_ms"),
+            plan.trace.get("input_tokens"),
+        )
+        for key, value in plan.trace.items():
+            if isinstance(value, dict) and "choice" in value:
+                LOGGER.debug(
+                    "  %-16s %-28s conf %.2f margin %.2f  %s",
+                    key,
+                    value["choice"],
+                    value["confidence"],
+                    value["margin"],
+                    value["top"],
+                )
+        if self._traces is not None:
+            self._traces.append(record)
         conversation.async_conversation_trace_append(
-            conversation.ConversationTraceEventType.AGENT_DETAIL,
-            {"route": plan.route.value, "reason": plan.reason, **plan.trace},
+            conversation.ConversationTraceEventType.AGENT_DETAIL, record
         )
         return await self._carry_out(plan, response, user_input, chat_log)
 
@@ -234,10 +272,7 @@ class TypeSafeAgent:
 
             case Route.CONFIRM:
                 return self._speech(
-                    user_input,
-                    f"Do you want me to {plan.action.replace('_', ' ')} the "
-                    f"{plan.target.described}?",
-                    continue_conversation=True,
+                    user_input, _confirm_question(plan), continue_conversation=True
                 )
 
             case Route.COMMAND:
@@ -512,6 +547,19 @@ class TypeSafeAgent:
         response = intent.IntentResponse(language=user_input.language)
         response.async_set_error(code, message)
         return response
+
+
+def _confirm_question(plan: Plan) -> str:
+    """Phrase the confirmation.
+
+    A script carries its meaning in its name, not its action, so "run the
+    Disarm the alarm?" reads badly - name it directly instead.
+    """
+    target = plan.target.described
+    if plan.domain in ("script", "scene"):
+        return f"Do you want me to run {target}?"
+    verb = (plan.action or "do that").replace("_", " ")
+    return f"Do you want me to {verb} the {target}?"
 
 
 def _with_text(

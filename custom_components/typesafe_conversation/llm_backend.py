@@ -99,11 +99,13 @@ class LLMBackend(ABC):
         base_url: str,
         model: str,
         api_key: str | None = None,
+        answer_timeout: float = ANSWER_TIMEOUT,
     ) -> None:
         self._session = session
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._api_key = api_key
+        self._answer_timeout = answer_timeout
 
     @abstractmethod
     async def _chat(
@@ -183,7 +185,7 @@ class LLMBackend(ABC):
             messages,
             max_tokens=ANSWER_MAX_TOKENS,
             temperature=ANSWER_TEMPERATURE,
-            timeout=ANSWER_TIMEOUT,
+            timeout=self._answer_timeout,
         )
         return text.strip()
 
@@ -249,8 +251,9 @@ class OpenAICompatBackend(LLMBackend):
         api_key: str | None = None,
         referer: str | None = None,
         title: str | None = None,
+        answer_timeout: float = ANSWER_TIMEOUT,
     ) -> None:
-        super().__init__(session, base_url, model, api_key)
+        super().__init__(session, base_url, model, api_key, answer_timeout)
         self._referer = referer
         self._title = title
 
@@ -360,6 +363,7 @@ def create_backend(
         CONF_LLM_BASE_URL,
         CONF_LLM_MODEL,
         CONF_LLM_REFERER,
+        CONF_LLM_TIMEOUT,
         CONF_LLM_TITLE,
         DEFAULT_LLM_REFERER,
         DEFAULT_LLM_TITLE,
@@ -371,9 +375,11 @@ def create_backend(
     if not backend or not base_url or not model:
         return None
 
+    timeout = float(settings.get(CONF_LLM_TIMEOUT) or ANSWER_TIMEOUT)
+
     if backend == BACKEND_OLLAMA:
         return OllamaBackend(
-            session, base_url, model, settings.get(CONF_LLM_API_KEY)
+            session, base_url, model, settings.get(CONF_LLM_API_KEY), timeout
         )
     if backend == BACKEND_OPENAI_COMPAT:
         return OpenAICompatBackend(
@@ -383,6 +389,7 @@ def create_backend(
             settings.get(CONF_LLM_API_KEY),
             settings.get(CONF_LLM_REFERER) or DEFAULT_LLM_REFERER,
             settings.get(CONF_LLM_TITLE) or DEFAULT_LLM_TITLE,
+            timeout,
         )
     LOGGER.error("Unknown LLM backend %r", backend)
     return None

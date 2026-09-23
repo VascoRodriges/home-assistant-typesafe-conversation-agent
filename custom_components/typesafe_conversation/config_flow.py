@@ -17,6 +17,8 @@ from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    NumberSelector,
+    NumberSelectorConfig,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -26,6 +28,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    ANSWER_TIMEOUT,
     BACKEND_OLLAMA,
     BACKEND_OPENAI_COMPAT,
     CONF_ALWAYS_CONFIRM_RISKY,
@@ -36,6 +39,7 @@ from .const import (
     CONF_LLM_API_KEY,
     CONF_LLM_BACKEND,
     CONF_LLM_BASE_URL,
+    CONF_LLM_TIMEOUT,
     CONF_LLM_MODEL,
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     DEFAULT_MODEL,
@@ -72,6 +76,9 @@ STEP_LLM_SCHEMA = vol.Schema(
         vol.Optional(CONF_LLM_MODEL): TextSelector(),
         vol.Optional(CONF_LLM_API_KEY): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Optional(CONF_LLM_TIMEOUT, default=ANSWER_TIMEOUT): NumberSelector(
+            NumberSelectorConfig(min=5, max=180, step=5, unit_of_measurement="s")
         ),
     }
 )

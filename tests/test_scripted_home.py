@@ -28,6 +28,7 @@ from pathlib import Path
 
 import pytest
 
+from custom_components.typesafe_conversation.const import RISKY_ACTIONS
 from custom_components.typesafe_conversation.entities import CatalogEntity
 from custom_components.typesafe_conversation.extraction import extract
 from custom_components.typesafe_conversation.system_one import SystemOneResponse, _parse_answer
@@ -113,6 +114,10 @@ def test_the_fixture_still_has_the_properties_these_tests_rely_on():
     entities, _ = _catalog()
     domains = [e.domain for e in entities]
     assert domains.count("script") >= 6, "need a domain whose action Choice has 2 options"
+    ids = {e.entity_id for e in entities}
+    assert {"script.security_disarm", "script.security_arm_home"} <= ids, (
+        "the risky gate tests need a security script whose action is only 'run'"
+    )
     assert domains.count("climate") == 2, "need two zones for the single_target clash"
     assert sum(1 for e in entities if e.area_id is None) >= 10
     assert "todo" in domains and "weather" in domains
@@ -199,3 +204,74 @@ def test_general_knowledge_reaches_the_llm(scripted):
         Route.INFORMATION,
         Route.FALLBACK,
     )
+
+
+# --- the risky gate ----------------------------------------------------------
+# A script's action is always "run", so the gate used to AND the risky question
+# with an allowlist of risky *actions* and no script could ever reach it.
+# Security actions are commonly implemented as scripts, so those ran
+# unconfirmed.
+
+
+@pytest.mark.parametrize(
+    "slug",
+    ["disarm_the_alarm", "open_the_driveway_gate", "unlock_the_side_door",
+     "open_the_side_door"],
+)
+def test_anything_that_reduces_security_asks_first(slug, scripted):
+    plan = scripted(slug)
+    assert plan.route is Route.CONFIRM, f"{slug} must not run unprompted"
+    assert plan.trace["risky"] >= 0.5
+
+
+def test_a_security_script_is_gated_even_though_its_action_is_run(scripted):
+    """The exact hole: domain=script, action=run, but genuinely dangerous."""
+    plan = scripted("disarm_the_alarm")
+    assert plan.domain == "script"
+    assert plan.action == "run", "a script's action carries no risk signal"
+    assert plan.action not in RISKY_ACTIONS, (
+        "if this ever becomes true the test has stopped proving anything"
+    )
+    # The question, not the action, is what catches it.
+    assert plan.trace["risky"] >= 0.9
+    assert plan.route is Route.CONFIRM
+
+
+def test_arming_is_not_treated_as_risky(scripted):
+    """Arming increases security, so it must not be gated.
+
+    The mirror of the test above: the question has to separate the two, or the
+    fix would just confirm everything.
+    """
+    plan = scripted("arm_the_alarm_in_home_mode")
+    assert plan.route is Route.COMMAND
+    assert plan.target.entity.entity_id == "script.security_arm_home"
+    assert plan.trace["risky"] < 0.1
+
+
+def test_ordinary_routines_are_not_gated(scripted):
+    """Guard against the fix confirming everything.
+
+    Twelve scripts in this catalog are ordinary routines. If the gate starts
+    firing on those, confirmation fatigue makes it worthless.
+    """
+    benign = [
+        "start_the_morning_routine", "run_the_evening_routine",
+        "set_up_guest_mode", "start_movie_mode", "start_party_mode",
+        "start_the_bedtime_routine", "switch_to_away_mode",
+        "turn_on_the_study_lamp", "add_milk_to_the_shopping_list",
+        "start_the_robot_cleaner",
+    ]
+    for slug in benign:
+        plan = scripted(slug)
+        assert plan.route is not Route.CONFIRM, f"{slug} should not need confirming"
+        assert plan.trace["risky"] < 0.5, slug
+
+
+def test_the_confirmation_names_the_script_readably(scripted):
+    from custom_components.typesafe_conversation.agent import _confirm_question
+
+    plan = scripted("disarm_the_alarm")
+    question = _confirm_question(plan)
+    assert question == "Do you want me to run Disarm the alarm?"
+    assert "run the Disarm" not in question

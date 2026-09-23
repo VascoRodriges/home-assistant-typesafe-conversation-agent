@@ -102,5 +102,21 @@
   [
     "turn off everything",
     "whole_house"
+  ],
+  [
+    "disarm the alarm",
+    "command script.security_disarm run -> MUST CONFIRM (risky)"
+  ],
+  [
+    "arm the alarm in home mode",
+    "command script.security_arm_home run"
+  ],
+  [
+    "open the driveway gate",
+    "command script.open_the_gate run -> MUST CONFIRM (risky)"
+  ],
+  [
+    "unlock the side door",
+    "cover/lock unlock -> MUST CONFIRM (risky)"
   ]
 ]

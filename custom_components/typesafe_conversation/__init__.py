@@ -8,6 +8,7 @@ reaches an LLM.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -21,7 +22,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.components import conversation
 import homeassistant.util.dt as dt_util
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from .const import (
     CONF_API_KEY,
@@ -30,6 +31,7 @@ from .const import (
     DEFAULT_MODEL,
     DOMAIN,
     LOGGER,
+    TRACE_HISTORY,
     WARMUP_INTERVAL_SECONDS,
 )
 from .entities import EntityCatalog
@@ -50,6 +52,15 @@ class TypeSafeRuntimeData:
     model: str
     questions_cache: tuple[int, bool, dict[str, Any]] | None = None
     """Shared across turns: the question set is a pure function of the catalog."""
+
+    traces: deque[dict[str, Any]] = field(
+        default_factory=lambda: deque(maxlen=TRACE_HISTORY)
+    )
+    """Recent request traces, newest last.
+
+    Home Assistant defines conversation traces but nothing reads them back -
+    there is no websocket command and no UI - so they are write-only. Keeping
+    our own ring buffer is what makes the diagnostics download useful."""
 
 
 type TypeSafeConfigEntry = ConfigEntry[TypeSafeRuntimeData]
@@ -94,11 +105,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> 
         entry.async_create_background_task(
             hass, llm.async_warm_up(), "typesafe_llm_warmup", eager_start=False
         )
+        async def _async_warm_up(_now: datetime) -> None:
+            """Keep the model resident.
+
+            This must be a coroutine function. async_track_time_interval
+            classifies its action as a HassJob, and a plain sync callable is
+            run in an executor thread - from which hass.async_create_task is
+            not safe to call.
+            """
+            await llm.async_warm_up()
+
         entry.async_on_unload(
             async_track_time_interval(
                 hass,
-                lambda _now: hass.async_create_task(llm.async_warm_up()),
+                _async_warm_up,
                 timedelta(seconds=WARMUP_INTERVAL_SECONDS),
+                name="typesafe_llm_warmup",
             )
         )
 

@@ -1,6 +1,6 @@
 {
-  "utterance": "add milk to the shopping list",
-  "expected": "command todo.list_one add_item 'milk'",
+  "utterance": "open the driveway gate",
+  "expected": "command script.open_the_gate run -> MUST CONFIRM (risky)",
   "spoken_from_area": "area_one",
   "response": {
     "model": "jev-1.13.0",
@@ -8,13 +8,13 @@
       "category": {
         "type": "choice",
         "choice": "command",
-        "confidence": 0.98,
+        "confidence": 1.0,
         "probabilities": {
-          "unclear": 0.0,
           "cancel": 0.0,
-          "information": 0.02,
-          "command": 0.98,
-          "query": 0.0
+          "query": 0.0,
+          "unclear": 0.0,
+          "command": 1.0,
+          "information": 0.0
         }
       },
       "compound": {
@@ -24,40 +24,40 @@
       "scope": {
         "type": "choice",
         "choice": "single",
-        "confidence": 0.72,
+        "confidence": 1.0,
         "probabilities": {
-          "whole_house": 0.0,
-          "area": 0.0,
+          "not_a_target": 0.0,
           "floor": 0.0,
-          "single": 0.78,
-          "not_a_target": 0.22
+          "single": 1.0,
+          "area": 0.0,
+          "whole_house": 0.0
         }
       },
       "here_relative": {
         "type": "noul",
-        "noul": 0.12
+        "noul": 0.14
       },
       "change_direction": {
         "type": "choice",
-        "choice": "no_numeric",
-        "confidence": 1.0,
+        "choice": "absolute",
+        "confidence": 0.39,
         "probabilities": {
-          "no_numeric": 1.0,
+          "absolute": 0.54,
           "decrease": 0.0,
-          "absolute": 0.0,
-          "increase": 0.0
+          "no_numeric": 0.2,
+          "increase": 0.26
         }
       },
       "magnitude": {
         "type": "choice",
         "choice": "not_applicable",
-        "confidence": 1.0,
+        "confidence": 0.94,
         "probabilities": {
+          "not_applicable": 0.95,
           "slight": 0.0,
-          "moderate": 0.0,
-          "not_applicable": 1.0,
+          "moderate": 0.02,
           "large": 0.0,
-          "maximum": 0.0
+          "maximum": 0.03
         }
       },
       "query_kind": {
@@ -66,83 +66,83 @@
         "confidence": 1.0,
         "probabilities": {
           "not_a_query": 1.0,
-          "count": 0.0,
-          "temperature": 0.0,
           "time_or_date": 0.0,
+          "temperature": 0.0,
           "device_state": 0.0,
+          "count": 0.0,
           "needs_prose": 0.0
         }
       },
       "risky": {
         "type": "noul",
-        "noul": 0.02
+        "noul": 0.96
       },
       "target_area": {
         "type": "choice",
-        "choice": "area_one",
-        "confidence": 0.63,
+        "choice": "no_area",
+        "confidence": 0.6,
         "probabilities": {
-          "lower_level": 0.0,
-          "area_one": 0.68,
-          "area_three": 0.0,
-          "area_four": 0.0,
+          "yard": 0.19,
           "area_two": 0.0,
-          "yard": 0.0,
-          "no_area": 0.32,
-          "upper_level": 0.0
+          "upper_level": 0.0,
+          "lower_level": 0.0,
+          "area_three": 0.0,
+          "no_area": 0.66,
+          "area_one": 0.15,
+          "area_four": 0.0
         }
       },
       "target_entity": {
         "type": "choice",
-        "choice": "todo.list_one",
-        "confidence": 0.98,
+        "choice": "script.open_the_gate",
+        "confidence": 1.0,
         "probabilities": {
-          "script.routine_guest": 0.0,
+          "no_single_entity": 0.0,
           "weather.forecast_home": 0.0,
-          "media_player.study_speaker": 0.0,
           "climate.zone_one": 0.0,
-          "cover.side_door": 0.0,
-          "script.routine_morning": 0.0,
-          "script.routine_movie": 0.0,
-          "script.routine_evening": 0.0,
-          "weather.local_station": 0.0,
-          "sensor.zone_one_temperature": 0.0,
-          "climate.zone_two": 0.0,
-          "sensor.zone_two_temperature": 0.0,
-          "script.security_disarm": 0.0,
-          "todo.list_one": 0.98,
           "vacuum.cleaner": 0.0,
-          "script.routine_bedtime": 0.0,
-          "script.open_the_gate": 0.0,
-          "script.security_arm_away": 0.0,
-          "no_single_entity": 0.02,
-          "sensor.zone_one_humidity": 0.0,
-          "script.routine_party": 0.0,
-          "script.routine_focus": 0.0,
-          "switch.workshop_extractor": 0.0,
+          "script.routine_guest": 0.0,
           "media_player.loft_speaker": 0.0,
-          "script.security_arm_home": 0.0,
-          "sensor.zone_two_humidity": 0.0,
+          "script.routine_party": 0.0,
+          "script.routine_movie": 0.0,
+          "media_player.study_speaker": 0.0,
           "script.routine_away": 0.0,
-          "light.study_lamp": 0.0
+          "script.security_arm_away": 0.0,
+          "cover.side_door": 0.0,
+          "weather.local_station": 0.0,
+          "sensor.zone_two_humidity": 0.0,
+          "switch.workshop_extractor": 0.0,
+          "sensor.zone_two_temperature": 0.0,
+          "script.routine_bedtime": 0.0,
+          "light.study_lamp": 0.0,
+          "sensor.zone_one_humidity": 0.0,
+          "script.open_the_gate": 1.0,
+          "script.routine_morning": 0.0,
+          "script.routine_focus": 0.0,
+          "climate.zone_two": 0.0,
+          "todo.list_one": 0.0,
+          "sensor.zone_one_temperature": 0.0,
+          "script.security_disarm": 0.0,
+          "script.security_arm_home": 0.0,
+          "script.routine_evening": 0.0
         }
       },
       "target_domain": {
         "type": "choice",
-        "choice": "todo",
-        "confidence": 1.0,
+        "choice": "script",
+        "confidence": 0.74,
         "probabilities": {
-          "switch": 0.0,
-          "media_player": 0.0,
-          "todo": 1.0,
-          "sensor": 0.0,
-          "vacuum": 0.0,
-          "none": 0.0,
-          "cover": 0.0,
-          "script": 0.0,
-          "climate": 0.0,
+          "script": 0.77,
           "light": 0.0,
-          "weather": 0.0
+          "none": 0.0,
+          "media_player": 0.0,
+          "switch": 0.0,
+          "sensor": 0.0,
+          "weather": 0.0,
+          "cover": 0.23,
+          "vacuum": 0.0,
+          "todo": 0.0,
+          "climate": 0.0
         }
       },
       "action_climate": {
@@ -150,40 +150,40 @@
         "choice": "not_targeted",
         "confidence": 1.0,
         "probabilities": {
-          "turn_off": 0.0,
+          "turn_on": 0.0,
+          "not_targeted": 1.0,
+          "cooler": 0.0,
           "set_temperature": 0.0,
           "set_mode": 0.0,
-          "warmer": 0.0,
-          "not_targeted": 1.0,
-          "turn_on": 0.0,
-          "cooler": 0.0
+          "turn_off": 0.0,
+          "warmer": 0.0
         }
       },
       "action_cover": {
         "type": "choice",
-        "choice": "not_targeted",
+        "choice": "open",
         "confidence": 1.0,
         "probabilities": {
-          "set_position": 0.0,
+          "open": 1.0,
           "close": 0.0,
-          "open": 0.0,
-          "stop": 0.0,
-          "not_targeted": 1.0
+          "not_targeted": 0.0,
+          "set_position": 0.0,
+          "stop": 0.0
         }
       },
       "action_light": {
         "type": "choice",
         "choice": "not_targeted",
-        "confidence": 1.0,
+        "confidence": 0.99,
         "probabilities": {
-          "turn_off": 0.0,
-          "brighter": 0.0,
           "set_color": 0.0,
+          "not_targeted": 0.99,
           "dimmer": 0.0,
-          "set_brightness": 0.0,
           "toggle": 0.0,
-          "not_targeted": 1.0,
-          "turn_on": 0.0
+          "set_brightness": 0.0,
+          "brighter": 0.0,
+          "turn_off": 0.0,
+          "turn_on": 0.01
         }
       },
       "action_media_player": {
@@ -191,86 +191,84 @@
         "choice": "not_targeted",
         "confidence": 1.0,
         "probabilities": {
-          "louder": 0.0,
           "pause": 0.0,
-          "next": 0.0,
-          "set_volume": 0.0,
-          "unmute": 0.0,
-          "search_and_play": 0.0,
-          "play": 0.0,
-          "not_targeted": 1.0,
-          "stop": 0.0,
+          "previous": 0.0,
           "quieter": 0.0,
+          "not_targeted": 1.0,
+          "unmute": 0.0,
           "mute": 0.0,
-          "previous": 0.0
+          "stop": 0.0,
+          "next": 0.0,
+          "louder": 0.0,
+          "set_volume": 0.0,
+          "play": 0.0,
+          "search_and_play": 0.0
         }
       },
       "action_script": {
         "type": "choice",
-        "choice": "not_targeted",
-        "confidence": 1.0,
+        "choice": "run",
+        "confidence": 0.77,
         "probabilities": {
-          "run": 0.0,
-          "not_targeted": 1.0
+          "not_targeted": 0.11,
+          "run": 0.89
         }
       },
       "action_switch": {
         "type": "choice",
         "choice": "not_targeted",
-        "confidence": 1.0,
+        "confidence": 0.94,
         "probabilities": {
+          "not_targeted": 0.95,
+          "toggle": 0.01,
           "turn_off": 0.0,
-          "not_targeted": 1.0,
-          "toggle": 0.0,
-          "turn_on": 0.0
+          "turn_on": 0.04
         }
       },
       "action_todo": {
         "type": "choice",
-        "choice": "add_item",
-        "confidence": 1.0,
+        "choice": "not_targeted",
+        "confidence": 0.99,
         "probabilities": {
-          "add_item": 1.0,
-          "remove_item": 0.0,
-          "not_targeted": 0.0,
-          "complete_item": 0.0
+          "not_targeted": 0.99,
+          "complete_item": 0.0,
+          "add_item": 0.01,
+          "remove_item": 0.0
         }
       },
       "action_vacuum": {
         "type": "choice",
         "choice": "not_targeted",
-        "confidence": 1.0,
+        "confidence": 0.98,
         "probabilities": {
-          "start": 0.0,
-          "not_targeted": 1.0,
-          "return_to_base": 0.0,
-          "clean_area": 0.0
+          "start": 0.01,
+          "not_targeted": 0.99,
+          "clean_area": 0.0,
+          "return_to_base": 0.0
         }
       },
       "media_query_span": {
         "type": "choice",
         "choice": "none",
-        "confidence": 0.99,
+        "confidence": 0.98,
         "probabilities": {
-          "none": 1.0,
-          "the shopping list": 0.0,
-          "milk": 0.0
+          "open the driveway gate": 0.01,
+          "none": 0.99
         }
       },
       "list_item_span": {
         "type": "choice",
-        "choice": "milk",
-        "confidence": 1.0,
+        "choice": "none",
+        "confidence": 0.96,
         "probabilities": {
-          "none": 0.0,
-          "the shopping list": 0.0,
-          "milk": 1.0
+          "open the driveway gate": 0.02,
+          "none": 0.98
         }
       }
     },
     "usage": {
-      "input_tokens": 5995,
-      "output_tokens": 1429
+      "input_tokens": 5983,
+      "output_tokens": 1413
     }
   }
 }

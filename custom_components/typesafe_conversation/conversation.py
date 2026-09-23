@@ -109,6 +109,7 @@ class TypeSafeConversationEntity(
                 ),
                 bypass_local_intents=bool(settings.get(CONF_BYPASS_LOCAL_INTENTS)),
             ),
+            traces=data.traces,
         )
         # Reuse the cached question set across turns of this config entry.
         agent._questions_cache = data.questions_cache

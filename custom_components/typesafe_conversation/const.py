@@ -49,6 +49,7 @@ CONF_LLM_TITLE: Final = "llm_title"
 CONF_BYPASS_LOCAL_INTENTS: Final = "bypass_local_intents"
 CONF_INLINE_ENTITY_DESCRIPTIONS: Final = "inline_entity_descriptions"
 CONF_ALWAYS_CONFIRM_RISKY: Final = "always_confirm_risky"
+CONF_LLM_TIMEOUT: Final = "llm_timeout"
 
 DEFAULT_ALWAYS_CONFIRM_RISKY: Final = True
 """Ask before unlocking or opening the house, however sure the model is.
@@ -69,7 +70,13 @@ DEFAULT_LLM_TITLE: Final = "HA TypeSafe Conversation"
 
 # --- LLM behaviour -----------------------------------------------------------
 SPLIT_TIMEOUT: Final = 4.0
-ANSWER_TIMEOUT: Final = 20.0
+ANSWER_TIMEOUT: Final = 30.0
+"""Seconds to wait for a freeform answer.
+
+A large local model can take well over the old 20s, especially on the first
+call after a restart. Raise it with CONF_LLM_TIMEOUT, or point the LLM at a
+smaller model - this path is only used for prose, so it does not need to be
+the same model you would pick for reasoning."""
 SPLIT_MAX_TOKENS: Final = 200
 ANSWER_MAX_TOKENS: Final = 180
 ANSWER_TEMPERATURE: Final = 0.3
@@ -82,6 +89,8 @@ WARMUP_INTERVAL_SECONDS: Final = 20 * 60
 MAX_CHOICE_OPTIONS: Final = 250
 MAX_HISTORY_TURNS: Final = 2
 CATALOG_SUMMARY_MAX_ENTITIES: Final = 120
+TRACE_HISTORY: Final = 20
+"""How many recent request traces to keep for the diagnostics download."""
 
 # --- Routing thresholds ------------------------------------------------------
 # Every value below is a first guess calibrated from the TypeSafe demo's
@@ -132,6 +141,20 @@ NOUL_COMPOUND_HIGH: Final = 0.70
 NOUL_COMPOUND_LOW: Final = 0.45
 NOUL_HERE_RELATIVE: Final = 0.60
 NOUL_RISKY: Final = 0.50
+"""The risky question alone decides whether to confirm.
+
+It used to be ANDed with an allowlist of risky actions, which exempted every
+script: a script's action is always "run", so no script could reach the gate
+whatever it did. Security actions are commonly implemented as scripts, and
+those would have run unconfirmed. Measured against jev-1.13.0, the question
+separates them on its own: "disarm the alarm" scores 0.95 and "open the
+driveway gate" 0.96, while "arm the alarm in home mode" scores 0.03."""
+
+NOUL_RISKY_EXPLICIT: Final = 0.30
+"""Lower bar when the action itself is literally an unlock, open or disarm.
+
+The allowlist is a floor now, never a filter - it can only make the gate fire
+more readily, never suppress it."""
 
 # A risky action (unlocking, opening an exterior door) needs more than the
 # normal confidence before we do it without asking.

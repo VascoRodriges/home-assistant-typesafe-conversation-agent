@@ -216,6 +216,30 @@
       "name": "Local Station",
       "domain": "weather",
       "state": "partlycloudy"
+    },
+    {
+      "id": "script.security_arm_home",
+      "name": "Arm the alarm in home mode",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.security_arm_away",
+      "name": "Arm the alarm in away mode",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.security_disarm",
+      "name": "Disarm the alarm",
+      "domain": "script",
+      "state": "off"
+    },
+    {
+      "id": "script.open_the_gate",
+      "name": "Open the driveway gate",
+      "domain": "script",
+      "state": "off"
     }
   ]
 }

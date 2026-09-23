@@ -104,6 +104,81 @@ beating hassil at "turn off the kitchen lights", and it concentrates the traffic
 on the requests where Jev earns its keep. Set `bypass_local_intents` if you want
 to compare the two regimes.
 
+## Debugging
+
+### Is the agent even being asked?
+
+With *Prefer handling commands locally* on, Home Assistant's own sentence
+matcher keeps every phrasing it recognises, so a well-formed command like
+"turn off the living room light" never reaches this integration. In the
+**Settings → Voice assistants → Debug** trace that shows up as:
+
+```
+processed_locally: true
+Natural language processing   0.01s
+```
+
+That is the design working, not a failure. A request this agent handled looks
+like `processed_locally: false` and roughly 250ms. To exercise it, use
+phrasings the matcher cannot parse — "it's too dark in here", "get the coffee
+going", "add milk to the shopping list", "turn off the lamp and start the
+vacuum" — or turn on `bypass_local_intents` to send everything here.
+
+### Download diagnostics
+
+**Settings → Devices & Services → TypeSafe Conversation → ⋮ → Download
+diagnostics** gives the last 20 requests with the route taken, the reason, the
+resolved target, and every answer's probability distribution and confidence:
+
+```json
+{
+  "utterance": "get the coffee going",
+  "route": "command", "reason": "switch.turn_on",
+  "target": "switch.coffee_maker",
+  "category":      {"choice": "command", "confidence": 1.0,  "margin": 1.0},
+  "target_entity": {"choice": "switch.coffee_maker", "confidence": 1.0},
+  "action":        {"choice": "turn_on", "confidence": 0.99,
+                    "top": {"turn_on": 0.99, "not_targeted": 0.01}},
+  "latency_ms": 244, "input_tokens": 6482
+}
+```
+
+API keys and the LLM base URL are redacted, and the catalog is reported as
+counts rather than entity ids, so the file is safe to attach to an issue.
+
+Home Assistant has a conversation-trace mechanism too, and this integration
+writes to it — but nothing in Home Assistant reads it back (there is no
+websocket command and no UI), so diagnostics is the usable route.
+
+### Debug log
+
+```yaml
+# configuration.yaml
+logger:
+  default: warning
+  logs:
+    custom_components.typesafe_conversation: debug
+```
+
+or, without a restart, **Developer Tools → Actions → `logger.set_level`** with
+`custom_components.typesafe_conversation: debug`. Each request then logs the
+route, latency and token count, followed by one line per answer:
+
+```
+Routed 'get the coffee going' -> command (switch.turn_on) in 244ms, 6482 input tokens
+  category         command                      conf 1.00 margin 1.00  {'command': 1.0}
+  target_entity    switch.coffee_maker          conf 1.00 margin 1.00  {...}
+  action           turn_on                      conf 0.99 margin 0.98  {...}
+```
+
+### If the LLM path times out
+
+`LLM could not answer: Timed out after 30.0s` means the model backing the prose
+path is too slow. That path only writes sentences, so it does not need to be
+the model you would choose for reasoning — a small local model, or a hosted
+one, is usually the right trade. Raise `llm_timeout` in the integration options
+if you would rather wait.
+
 ## Development
 
 ```sh

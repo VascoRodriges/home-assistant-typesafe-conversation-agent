@@ -185,3 +185,54 @@ async def test_the_catalog_uses_home_assistants_conversation_domain(
     catalog = hass.data[DOMAIN]["catalog"]
     assert catalog.assistant == "conversation"
     assert [e.entity_id for e in catalog.entities] == ["switch.coffee_maker"]
+
+
+async def test_diagnostics_record_the_decision_and_redact_secrets(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+):
+    """Diagnostics are the only way to see why the agent decided what it did.
+
+    Home Assistant defines conversation traces but nothing reads them back, so
+    without this the reasoning is only in the debug log.
+    """
+    from custom_components.typesafe_conversation.diagnostics import (
+        async_get_config_entry_diagnostics,
+    )
+
+    await _setup_home(hass)
+    # The warm-up ping fires during setup, so register it first.
+    aioclient_mock.post(
+        "http://private-host.example:11434/api/chat",
+        json={"message": {"content": "ok"}},
+    )
+    aioclient_mock.post(TYPESAFE_API_URL, json=_recorded("get_the_coffee_boiling"))
+    entry = await _add_entry(
+        hass,
+        aioclient_mock,
+        llm_backend="ollama",
+        llm_base_url="http://private-host.example:11434",
+        llm_model="a-model",
+        llm_api_key="sk-secret",
+    )
+    async_mock_service(hass, "switch", "turn_on")
+    await conversation.async_converse(
+        hass, "get the coffee boiling", None, None,
+        agent_id="conversation.typesafe_conversation",
+    )
+
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+
+    # The decision is recoverable.
+    (request,) = diag["recent_requests"]
+    assert request["utterance"] == "get the coffee boiling"
+    assert request["route"] == "command"
+    assert request["target"] == "switch.coffee_maker"
+    assert request["category"]["choice"] == "command"
+    assert "input_tokens" in request
+
+    # Nothing that identifies the install or authenticates as it.
+    blob = str(diag)
+    assert "sk-secret" not in blob
+    assert "private-host.example" not in blob
+    assert "sk-test" not in blob
+    assert diag["catalog"]["entities"] == 1
