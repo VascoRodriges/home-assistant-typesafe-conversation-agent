@@ -119,6 +119,13 @@ class TypeSafeAgent:
         )
         record = {
             "utterance": text,
+            # Where the request came from. Standard ConversationInput fields,
+            # so these are populated whatever the front end: a satellite fills
+            # both, typed input leaves both None. Recording them is what turns
+            # "something keeps arming the alarm" into a one-step answer.
+            "device_id": user_input.device_id,
+            "satellite_id": user_input.satellite_id,
+            "from_satellite": user_input.satellite_id is not None,
             "route": plan.route.value,
             "reason": plan.reason,
             "domain": plan.domain,
@@ -136,8 +143,9 @@ class TypeSafeAgent:
             **plan.trace,
         }
         LOGGER.debug(
-            "Routed %r -> %s (%s) in %sms, %s input tokens",
+            "Routed %r from %s -> %s (%s) in %sms, %s input tokens",
             text,
+            user_input.satellite_id or user_input.device_id or "text input",
             plan.route.value,
             plan.reason,
             plan.trace.get("latency_ms"),

@@ -15,7 +15,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import asyncio
 import json
+import logging
 import re
+import time
 from typing import Any
 
 import aiohttp
@@ -29,6 +31,7 @@ from .const import (
     LOGGER,
     MAX_SUB_COMMANDS,
     OLLAMA_KEEP_ALIVE,
+    PROMPT_LOG_CHARS,
     SPLIT_MAX_TOKENS,
     SPLIT_TIMEOUT,
 )
@@ -115,8 +118,18 @@ class LLMBackend(ABC):
         max_tokens: int,
         temperature: float,
         timeout: float,
-    ) -> str:
-        """Send a chat completion and return the assistant's text."""
+    ) -> tuple[str, dict[str, Any]]:
+        """Send a chat completion.
+
+        Returns the assistant's text and a normalized metrics dict. The two
+        providers report different things - Ollama gives timings and token
+        counts, an OpenAI-compatible endpoint gives token counts only - so
+        each backend normalizes into shared key names and the caller never
+        has to branch. Every backend supplies ``elapsed_s``, measured here
+        rather than taken from the provider: it is what the user actually
+        waits, and it is the only figure that also covers connection setup
+        and a slow link.
+        """
 
     async def async_warm_up(self) -> None:
         """Nudge the model into memory. Overridden where it helps."""
@@ -129,12 +142,13 @@ class LLMBackend(ABC):
         single command - which is exactly what would have happened without the
         compound question. A failure here must not cost the user their command.
         """
+        messages = [
+            {"role": "system", "content": SPLIT_SYSTEM_PROMPT},
+            {"role": "user", "content": utterance},
+        ]
         try:
-            raw = await self._chat(
-                [
-                    {"role": "system", "content": SPLIT_SYSTEM_PROMPT},
-                    {"role": "user", "content": utterance},
-                ],
+            raw, metrics = await self._chat(
+                messages,
                 max_tokens=SPLIT_MAX_TOKENS,
                 temperature=0.0,
                 timeout=SPLIT_TIMEOUT,
@@ -142,6 +156,7 @@ class LLMBackend(ABC):
         except LLMBackendError as err:
             LOGGER.warning("Could not split a compound request (%s)", err)
             return [utterance]
+        _log_exchange("split", self.name, self._model, messages, raw, metrics)
 
         parts = _parse_string_array(raw)
         if not parts:
@@ -181,12 +196,13 @@ class LLMBackend(ABC):
                 messages.append({"role": "assistant", "content": assistant_text})
         messages.append({"role": "user", "content": utterance})
 
-        text = await self._chat(
+        text, metrics = await self._chat(
             messages,
             max_tokens=ANSWER_MAX_TOKENS,
             temperature=ANSWER_TEMPERATURE,
             timeout=self._answer_timeout,
         )
+        _log_exchange("answer", self.name, self._model, messages, text, metrics)
         return text.strip()
 
 
@@ -202,7 +218,7 @@ class OllamaBackend(LLMBackend):
         max_tokens: int,
         temperature: float,
         timeout: float,
-    ) -> str:
+    ) -> tuple[str, dict[str, Any]]:
         payload = {
             "model": self._model,
             "messages": messages,
@@ -213,13 +229,16 @@ class OllamaBackend(LLMBackend):
         headers = {}
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
+        started = time.monotonic()
         data = await _post_json(
             self._session, f"{self._base_url}/api/chat", payload, headers, timeout
         )
+        elapsed = time.monotonic() - started
         try:
-            return data["message"]["content"]
+            text = data["message"]["content"]
         except (KeyError, TypeError) as err:
             raise LLMBackendError(f"Unexpected Ollama response: {data}") from err
+        return text, _ollama_metrics(data, elapsed)
 
     async def async_warm_up(self) -> None:
         """Keep the model resident.
@@ -228,11 +247,16 @@ class OllamaBackend(LLMBackend):
         integration, so we pay for it in the background instead.
         """
         try:
-            await self._chat(
+            _text, metrics = await self._chat(
                 [{"role": "user", "content": "hi"}],
                 max_tokens=1,
                 temperature=0.0,
                 timeout=SPLIT_TIMEOUT,
+            )
+            LOGGER.debug(
+                "Ollama warm-up took %.2fs (load %.2fs)",
+                metrics.get("elapsed_s", 0.0),
+                metrics.get("load_s", 0.0),
             )
         except LLMBackendError as err:
             LOGGER.debug("Ollama warm-up did not succeed: %s", err)
@@ -264,7 +288,7 @@ class OpenAICompatBackend(LLMBackend):
         max_tokens: int,
         temperature: float,
         timeout: float,
-    ) -> str:
+    ) -> tuple[str, dict[str, Any]]:
         payload = {
             "model": self._model,
             "messages": messages,
@@ -280,6 +304,7 @@ class OpenAICompatBackend(LLMBackend):
             headers["HTTP-Referer"] = self._referer
         if self._title:
             headers["X-Title"] = self._title
+        started = time.monotonic()
         data = await _post_json(
             self._session,
             f"{self._base_url}/v1/chat/completions",
@@ -287,10 +312,121 @@ class OpenAICompatBackend(LLMBackend):
             headers,
             timeout,
         )
+        elapsed = time.monotonic() - started
         try:
-            return data["choices"][0]["message"]["content"] or ""
+            text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError) as err:
             raise LLMBackendError(f"Unexpected response: {data}") from err
+        return text, _openai_metrics(data, elapsed)
+
+
+# --- metrics ------------------------------------------------------------
+# Each backend normalizes its provider's response into these shared keys, so
+# the log helper never branches on which provider answered. A key that the
+# provider does not report is simply absent.
+#
+#   elapsed_s          always - measured client-side
+#   prompt_tokens      Ollama prompt_eval_count   | OpenAI usage.prompt_tokens
+#   completion_tokens  Ollama eval_count          | OpenAI usage.completion_tokens
+#   load_s             Ollama only - a cold model load
+#   prompt_s, eval_s   Ollama only - enables tokens/sec
+#   total_s            Ollama only - the server's own view of the request
+
+
+def _ns_to_s(value: Any) -> float | None:
+    """Ollama reports durations in nanoseconds."""
+    if isinstance(value, (int, float)) and value > 0:
+        return value / 1_000_000_000
+    return None
+
+
+def _ollama_metrics(data: dict[str, Any], elapsed: float) -> dict[str, Any]:
+    out: dict[str, Any] = {"elapsed_s": elapsed}
+    for key, name in (
+        ("prompt_eval_count", "prompt_tokens"),
+        ("eval_count", "completion_tokens"),
+    ):
+        if isinstance(data.get(key), int):
+            out[name] = data[key]
+    for key, name in (
+        ("load_duration", "load_s"),
+        ("prompt_eval_duration", "prompt_s"),
+        ("eval_duration", "eval_s"),
+        ("total_duration", "total_s"),
+    ):
+        if (seconds := _ns_to_s(data.get(key))) is not None:
+            out[name] = seconds
+    return out
+
+
+def _openai_metrics(data: dict[str, Any], elapsed: float) -> dict[str, Any]:
+    """An OpenAI-compatible endpoint reports tokens but no timing.
+
+    There is no local model to load, so there is no cold-load equivalent
+    either; elapsed_s is the only timing available and it is ours.
+    """
+    out: dict[str, Any] = {"elapsed_s": elapsed}
+    usage = data.get("usage")
+    if isinstance(usage, dict):
+        for key, name in (
+            ("prompt_tokens", "prompt_tokens"),
+            ("completion_tokens", "completion_tokens"),
+        ):
+            if isinstance(usage.get(key), int):
+                out[name] = usage[key]
+    return out
+
+
+def _log_exchange(
+    operation: str,
+    backend: str,
+    model: str,
+    messages: list[dict[str, str]],
+    reply: str,
+    metrics: dict[str, Any],
+) -> None:
+    """Record one LLM exchange at DEBUG.
+
+    The system prompt embeds the home catalog - entity names, areas and
+    current states - and home-assistant.log is what people paste into issue
+    reports, so it is truncated here. The reply is short enough
+    (ANSWER_MAX_TOKENS is 180) to log whole.
+    """
+    if not LOGGER.isEnabledFor(logging.DEBUG):
+        return
+
+    system = next((m["content"] for m in messages if m["role"] == "system"), "")
+    lines = [
+        f"llm {backend} {model} {operation}",
+        f"  messages  : {len(messages)} "
+        f"(system {len(system)} chars, truncated below)",
+        f"  system    : {system[:PROMPT_LOG_CHARS]!r}"
+        + ("..." if len(system) > PROMPT_LOG_CHARS else ""),
+        f"  reply     : {reply!r} ({len(reply)} chars)",
+        f"  elapsed   : {metrics['elapsed_s']:.2f}s",
+    ]
+    if (load := metrics.get("load_s")) is not None:
+        lines.append(f"  load      : {load:.2f}s  <- cold model load")
+    for label, tokens_key, seconds_key in (
+        ("prompt", "prompt_tokens", "prompt_s"),
+        ("eval  ", "completion_tokens", "eval_s"),
+    ):
+        tokens = metrics.get(tokens_key)
+        if tokens is None:
+            continue
+        seconds = metrics.get(seconds_key)
+        if seconds:
+            lines.append(
+                f"  {label}    : {tokens} tok in {seconds:.2f}s "
+                f"({tokens / seconds:.1f} tok/s)"
+            )
+        else:
+            # An OpenAI-compatible endpoint reports no per-phase timing.
+            lines.append(f"  {label}    : {tokens} tok")
+    if (total := metrics.get("total_s")) is not None:
+        lines.append(f"  total     : {total:.2f}s (server-side)")
+    LOGGER.debug("\n".join(lines))
+
 
 
 async def _post_json(

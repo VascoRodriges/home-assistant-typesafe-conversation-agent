@@ -9,7 +9,7 @@ from homeassistant.components import conversation
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Context, HomeAssistant
 from homeassistant.helpers import area_registry as ar, entity_registry as er
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import (
@@ -230,9 +230,53 @@ async def test_diagnostics_record_the_decision_and_redact_secrets(
     assert request["category"]["choice"] == "command"
     assert "input_tokens" in request
 
+    # Where the request came from is recorded, so a recurring phantom can be
+    # attributed in one step instead of five.
+    assert "device_id" in request
+    assert "satellite_id" in request
+    assert request["from_satellite"] is False, "typed input has no satellite"
+
     # Nothing that identifies the install or authenticates as it.
     blob = str(diag)
     assert "sk-secret" not in blob
     assert "private-host.example" not in blob
     assert "sk-test" not in blob
     assert diag["catalog"]["entities"] == 1
+
+
+async def test_a_satellite_request_records_where_it_came_from(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+):
+    """A voice satellite fills device_id and satellite_id on ConversationInput.
+
+    Recording them is what distinguishes a deliberate command from a
+    wake-word false trigger. These are standard fields, so this is not
+    specific to any satellite hardware.
+    """
+    from custom_components.typesafe_conversation.diagnostics import (
+        async_get_config_entry_diagnostics,
+    )
+
+    await _setup_home(hass)
+    entry = await _add_entry(hass, aioclient_mock)
+    aioclient_mock.post(TYPESAFE_API_URL, json=_recorded("get_the_coffee_boiling"))
+    async_mock_service(hass, "switch", "turn_on")
+
+    agent = conversation.async_get_agent(hass, "conversation.typesafe_conversation")
+    await agent.internal_async_process(
+        conversation.ConversationInput(
+            text="get the coffee boiling",
+            context=Context(),
+            conversation_id=None,
+            device_id="device-abc",
+            satellite_id="assist_satellite.kitchen",
+            language="en",
+            agent_id="conversation.typesafe_conversation",
+        )
+    )
+
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    (request,) = diag["recent_requests"]
+    assert request["device_id"] == "device-abc"
+    assert request["satellite_id"] == "assist_satellite.kitchen"
+    assert request["from_satellite"] is True

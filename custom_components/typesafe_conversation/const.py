@@ -84,6 +84,12 @@ MAX_SUB_COMMANDS: Final = 6
 OLLAMA_KEEP_ALIVE: Final = "30m"
 WARMUP_INTERVAL_SECONDS: Final = 20 * 60
 
+PROMPT_LOG_CHARS: Final = 200
+"""How much of a system prompt to write to the debug log.
+
+The freeform prompt embeds the home catalog - entity names, areas and current
+states - and home-assistant.log is what gets pasted into issue reports."""
+
 # --- Catalog -----------------------------------------------------------------
 # The binding constraint is the API's 255-option cap on a Choice, not tokens.
 MAX_CHOICE_OPTIONS: Final = 250
