@@ -118,6 +118,12 @@ def test_the_fixture_still_has_the_properties_these_tests_rely_on():
     assert {"script.security_disarm", "script.security_arm_home"} <= ids, (
         "the risky gate tests need a security script whose action is only 'run'"
     )
+    # An area holding no media_player, so the area-resolution path is exercised.
+    with_players = {e.area_id for e in entities if e.domain == "media_player"}
+    all_areas = {e.area_id for e in entities if e.area_id}
+    assert all_areas - with_players, (
+        "need an area with no media_player for the widening test"
+    )
     assert domains.count("climate") == 2, "need two zones for the single_target clash"
     assert sum(1 for e in entities if e.area_id is None) >= 10
     assert "todo" in domains and "weather" in domains
@@ -275,3 +281,21 @@ def test_the_confirmation_names_the_script_readably(scripted):
     question = _confirm_question(plan)
     assert question == "Do you want me to run Disarm the alarm?"
     assert "run the Disarm" not in question
+
+
+def test_an_area_with_no_player_widens_instead_of_failing(scripted):
+    """"Play jazz in the workshop" - and the workshop has no speaker.
+
+    Sending area=workshop as a hard constraint is a guaranteed
+    MatchFailedError. search_and_play is single-target, so the area becomes a
+    preference and Home Assistant picks a real player, still favouring the
+    workshop if one ever appears there.
+    """
+    plan = scripted("play_jazz_in_the_workshop")
+    assert plan.route is Route.COMMAND
+    assert plan.domain == "media_player"
+    assert plan.action == "search_and_play"
+    assert plan.text_slot == ("search_query", "jazz")
+    assert plan.target.area_id is None, "a hard area here is what fails"
+    assert plan.preferred_area_id == "area_two"
+    assert plan.trace["area_resolution"] == "prefer_area"

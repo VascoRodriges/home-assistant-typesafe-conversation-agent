@@ -163,3 +163,174 @@ async def test_empty_constraints_would_have_raised(hass: HomeAssistant):
     await _setup(hass)
     with pytest.raises(intent.IntentHandleError):
         await intent.async_handle(hass, "test", "HassTurnOff", {})
+
+
+# --- targeting an area that holds nothing of the domain ----------------------
+# Sending such an area is a guaranteed MatchFailedError, and the catalog says
+# so before the call. What to do instead depends on the handler, because
+# Home Assistant consults preferred_area_id only for single-target matches and
+# duplicate names - never to widen a fan-out command.
+
+
+def _entity(entity_id, name, area, domain):
+    from custom_components.typesafe_conversation.entities import CatalogEntity
+
+    return CatalogEntity(
+        entity_id=entity_id, name=name, aliases=(), area_id=area,
+        area_name=area, floor_name=None, domain=domain,
+        device_class=None, supported_features=0,
+    )
+
+
+def _resolve(area, domain, action, entities):
+    from custom_components.typesafe_conversation.router import _resolve_area
+
+    return _resolve_area(area, domain, spec_for(domain, action), {
+        e.entity_id: e for e in entities
+    })
+
+
+def test_an_area_with_a_match_keeps_the_hard_constraint():
+    from custom_components.typesafe_conversation.router import AreaOutcome
+
+    speakers = [_entity("media_player.a", "A", "kitchen", "media_player")]
+    assert _resolve("kitchen", "media_player", "search_and_play",
+                    speakers).outcome is AreaOutcome.USE_AREA
+
+
+def test_a_single_target_handler_prefers_the_area_instead():
+    """search_and_play picks one target, so widening is safe."""
+    from custom_components.typesafe_conversation.router import AreaOutcome
+
+    speakers = [
+        _entity("media_player.a", "A", "kitchen", "media_player"),
+        _entity("media_player.b", "B", "bedroom", "media_player"),
+    ]
+    got = _resolve("upstairs", "media_player", "search_and_play", speakers)
+    assert got.outcome is AreaOutcome.PREFER_AREA
+
+
+def test_the_only_candidate_in_the_home_is_used():
+    from custom_components.typesafe_conversation.router import AreaOutcome
+
+    one = [_entity("light.only", "Only", "kitchen", "light")]
+    got = _resolve("garage", "light", "turn_on", one)
+    assert got.outcome is AreaOutcome.USE_ONLY_ENTITY
+    assert got.entity.entity_id == "light.only"
+
+
+def test_a_fan_out_command_asks_rather_than_widening():
+    """The regression this whole change must not introduce.
+
+    "turn off the lights" in a room with no lights must not become "turn off
+    every light in the house". preferred_area_id would not even help here -
+    Home Assistant ignores it for fan-out matches - so it would widen to all.
+    """
+    from custom_components.typesafe_conversation.router import AreaOutcome
+
+    many = [
+        _entity("light.a", "A", "kitchen", "light"),
+        _entity("light.b", "B", "bedroom", "light"),
+    ]
+    assert _resolve("garage", "light", "turn_off",
+                    many).outcome is AreaOutcome.CLARIFY
+
+
+async def test_preferred_area_is_sent_instead_of_area(hass: HomeAssistant):
+    """The slot the router chose must be the slot that goes out."""
+    await _setup(hass)
+    from custom_components.typesafe_conversation.router import Plan, Route, Target
+
+    plan = Plan(
+        Route.COMMAND, domain="media_player", action="search_and_play",
+        spec=spec_for("media_player", "search_and_play"),
+        target=Target(domain="media_player"),
+        preferred_area_id="upstairs",
+    )
+    slots = build_slots(plan.target, preferred_area_id=plan.preferred_area_id)
+    assert slots["preferred_area_id"]["value"] == "upstairs"
+    assert "area" not in slots, "a hard area is what fails; it must not be sent"
+
+
+async def test_an_area_with_no_speaker_still_matches_a_player(hass: HomeAssistant):
+    """End to end on the matching step, which is what actually broke.
+
+    A satellite in an area holding no media_player asked for music. The old
+    code sent area=<that area> as a hard constraint, async_match_targets found
+    nothing, and it died as MatchFailedError before any service ran. With the
+    area demoted to a preference the same request resolves to a real player.
+    """
+    await _setup(hass)
+    from homeassistant.components.media_player import MediaPlayerEntityFeature as F
+
+    areas = ar.async_get(hass)
+    bedroom = areas.async_create("Bedroom")
+    upstairs = areas.async_create("Upstairs")  # the satellite's area, no speaker
+    registry = er.async_get(hass)
+    speaker = registry.async_get_or_create(
+        "media_player", "demo", "spk", suggested_object_id="bedroom_speaker"
+    )
+    registry.async_update_entity(speaker.entity_id, area_id=bedroom.id)
+    hass.states.async_set(
+        speaker.entity_id, "idle",
+        {"friendly_name": "Bedroom Speaker",
+         "supported_features": int(F.SEARCH_MEDIA | F.PLAY_MEDIA)},
+    )
+    _expose(hass, speaker.entity_id)
+
+    from custom_components.typesafe_conversation.router import Plan, Route, Target
+
+    plan = Plan(
+        Route.COMMAND, domain="media_player", action="search_and_play",
+        spec=spec_for("media_player", "search_and_play"),
+        target=Target(domain="media_player"),
+        preferred_area_id=upstairs.id,
+        text_slot=("search_query", "jazz music"),
+    )
+    slots = build_slots(plan.target, preferred_area_id=plan.preferred_area_id)
+    assert "area" not in slots
+
+    # Exactly the constraints MediaSearchAndPlayHandler builds.
+    constraints = intent.MatchTargetsConstraints(
+        name=None, area_name=slots.get("area", {}).get("value"),
+        domains={"media_player"}, assistant=conversation.DOMAIN,
+        features=F.SEARCH_MEDIA | F.PLAY_MEDIA, single_target=True,
+    )
+    result = intent.async_match_targets(
+        hass, constraints,
+        intent.MatchTargetsPreferences(
+            area_id=slots["preferred_area_id"]["value"]
+        ),
+    )
+    assert result.is_match, "the old hard-area slot failed here"
+    assert [s.entity_id for s in result.states] == [speaker.entity_id]
+
+
+async def test_the_old_hard_area_slot_would_have_failed(hass: HomeAssistant):
+    """Guard the premise: prove the thing we replaced really did fail."""
+    await _setup(hass)
+    from homeassistant.components.media_player import MediaPlayerEntityFeature as F
+
+    areas = ar.async_get(hass)
+    bedroom = areas.async_create("Bedroom")
+    upstairs = areas.async_create("Upstairs")
+    registry = er.async_get(hass)
+    speaker = registry.async_get_or_create("media_player", "demo", "spk")
+    registry.async_update_entity(speaker.entity_id, area_id=bedroom.id)
+    hass.states.async_set(
+        speaker.entity_id, "idle",
+        {"friendly_name": "Bedroom Speaker",
+         "supported_features": int(F.SEARCH_MEDIA | F.PLAY_MEDIA)},
+    )
+    _expose(hass, speaker.entity_id)
+
+    result = intent.async_match_targets(
+        hass,
+        intent.MatchTargetsConstraints(
+            area_name=upstairs.id, domains={"media_player"},
+            assistant=conversation.DOMAIN,
+            features=F.SEARCH_MEDIA | F.PLAY_MEDIA, single_target=True,
+        ),
+        intent.MatchTargetsPreferences(),
+    )
+    assert not result.is_match, "if this ever matches, the fix is unnecessary"

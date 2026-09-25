@@ -53,8 +53,18 @@ def _slot(value: Any, text: str | None = None) -> dict[str, Any]:
     return slot
 
 
-def build_slots(target: Target, spec_name_only: bool = False) -> dict[str, Any]:
-    """Express a Target as intent slots."""
+def build_slots(
+    target: Target,
+    spec_name_only: bool = False,
+    preferred_area_id: str | None = None,
+) -> dict[str, Any]:
+    """Express a Target as intent slots.
+
+    ``preferred_area_id`` is sent *instead of* a hard ``area`` when the router
+    found that area holds nothing of the target domain. Home Assistant treats
+    it as a tie-breaker rather than a filter, so the match widens to the home
+    while still preferring that room.
+    """
     slots: dict[str, Any] = {}
     if target.entity is not None:
         slots["name"] = _slot(target.entity.entity_id, target.entity.name)
@@ -67,6 +77,8 @@ def build_slots(target: Target, spec_name_only: bool = False) -> dict[str, Any]:
         slots["floor"] = _slot(target.floor_name)
     elif target.area_id:
         slots["area"] = _slot(target.area_id)
+    elif preferred_area_id:
+        slots["preferred_area_id"] = _slot(preferred_area_id)
 
     if target.domain:
         slots["domain"] = _slot([target.domain])
@@ -103,7 +115,9 @@ async def async_execute(
         return await _execute_whole_house(hass, plan, user_input, catalog)
 
     slots = build_slots(
-        plan.target, spec_name_only=bool(plan.spec and plan.spec.name_only)
+        plan.target,
+        spec_name_only=bool(plan.spec and plan.spec.name_only),
+        preferred_area_id=plan.preferred_area_id,
     )
     if not slots:
         raise ExecutionError("Nothing to target", code="no_valid_targets")

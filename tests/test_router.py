@@ -110,7 +110,14 @@ def test_warmer_light_becomes_a_colour_temperature(entities_by_id, available_dom
 def test_media_search_query_is_a_verbatim_span(entities_by_id, available_domains):
     plan, _ = _route("play_some_jazz_in_the_kitchen", entities_by_id, available_domains)
     assert plan.text_slot == ("search_query", "some jazz")
-    assert plan.target.area_id == "kitchen"
+
+    # This fixture has no media_player in the kitchen - both live in the living
+    # room - so a hard `area` slot would be a guaranteed MatchFailedError.
+    # search_and_play is single-target, so the area becomes a preference and
+    # Home Assistant picks a real player while still favouring the kitchen.
+    assert plan.target.area_id is None
+    assert plan.preferred_area_id == "kitchen"
+    assert plan.trace["area_resolution"] == "prefer_area"
 
 
 def test_unlocking_asks_before_acting(entities_by_id, available_domains):

@@ -118,5 +118,9 @@
   [
     "unlock the side door",
     "cover/lock unlock -> MUST CONFIRM (risky)"
+  ],
+  [
+    "play jazz in the workshop",
+    "command media_player search_and_play -> area has no player, must widen"
   ]
 ]

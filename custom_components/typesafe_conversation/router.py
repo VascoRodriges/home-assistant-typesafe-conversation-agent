@@ -118,6 +118,13 @@ class Plan:
     """(entity_id, friendly name) pairs for a disambiguation question."""
     speech: str | None = None
 
+    preferred_area_id: str | None = None
+    """Sent instead of a hard area when that area holds nothing to act on.
+
+    Home Assistant consults a preference only for single-target matches and
+    for disambiguating duplicate names, so this can never widen a fan-out
+    command - see _resolve_area."""
+
     # presentation
     name_target_in_speech: bool = False
     """True in the middle confidence band: act, but say what we acted on."""
@@ -371,6 +378,8 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
 
     # -- 5c. who it applies to ------------------------------------------------
     target = Target(domain=domain)
+    chosen_area: str | None = None
+    preferred_area: str | None = None
     if scope is not None and scope.choice == "whole_house" and _solid(
         scope, T_SCOPE_WHOLE_HOUSE
     ):
@@ -402,9 +411,9 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
         and target_area is not None
         and target_area.choice != Q.NO_AREA
     ):
-        target.area_id = target_area.choice
+        chosen_area = target_area.choice
     elif here >= NOUL_HERE_RELATIVE and speaker_area_id:
-        target.area_id = speaker_area_id
+        chosen_area = speaker_area_id
     elif spec.name_only:
         # This handler has no area slot, so without an entity there is nothing
         # we can legally send.
@@ -418,11 +427,32 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
             reason="no usable target",
         )
 
+    if chosen_area is not None:
+        resolution = _resolve_area(chosen_area, domain, spec, entities_by_id)
+        trace["area_resolution"] = resolution.outcome.value
+        match resolution.outcome:
+            case AreaOutcome.USE_AREA:
+                target.area_id = chosen_area
+            case AreaOutcome.PREFER_AREA:
+                # No hard area: it holds nothing of this domain, so sending it
+                # would fail. The handler picks one target and still prefers
+                # this room.
+                preferred_area = chosen_area
+            case AreaOutcome.USE_ONLY_ENTITY:
+                target.entity = resolution.entity
+                target.area_id = resolution.entity.area_id
+            case AreaOutcome.CLARIFY:
+                return _clarify_or_fall_back(
+                    domain, action, target_entity, entities_by_id, trace,
+                    reason=f"no {domain} in area {chosen_area}",
+                )
+
     plan = Plan(
         Route.COMMAND,
         reason=f"{domain}.{action}",
         domain=domain,
         action=action,
+        preferred_area_id=preferred_area,
         spec=spec,
         target=target,
         trace=trace,
@@ -460,7 +490,9 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
         if target.entity is not None and target_entity is not None
         else 1.0,
     )
-    plan.name_target_in_speech = deciding < CONF_ACT_TERSE
+    plan.name_target_in_speech = deciding < CONF_ACT_TERSE or (
+        trace.get("area_resolution") == AreaOutcome.USE_ONLY_ENTITY.value
+    )
     trace["deciding_confidence"] = round(deciding, 3)
     if deciding < CONF_ACT_EXPLICIT:
         LOGGER.debug(
@@ -486,6 +518,64 @@ def _resolve_floor(
     if target_area is not None and target_area.choice in catalog_floors:
         return catalog_floors[target_area.choice]
     return None
+
+
+class AreaOutcome(StrEnum):
+    """What to do with an area the request resolved to."""
+
+    USE_AREA = "use_area"
+    """The area holds something of this domain; send it as a hard constraint."""
+
+    PREFER_AREA = "prefer_area"
+    """It holds nothing, but the handler picks a single target - let Home
+    Assistant widen to the home while still preferring this room."""
+
+    USE_ONLY_ENTITY = "use_only_entity"
+    """It holds nothing, and the home has exactly one candidate. Use it, and
+    say which one out loud since the user did not name it."""
+
+    CLARIFY = "clarify"
+    """It holds nothing and several candidates exist. Widening a fan-out
+    command here would act on devices the user never mentioned."""
+
+
+@dataclass(slots=True)
+class AreaResolution:
+    """How to target a command that resolved to an area."""
+
+    outcome: AreaOutcome
+    entity: CatalogEntity | None = None
+
+
+def _resolve_area(
+    area_id: str,
+    domain: str,
+    spec: ActionSpec,
+    entities_by_id: dict[str, CatalogEntity],
+) -> AreaResolution:
+    """Decide how to target an area, given what the catalog says is in it.
+
+    Sending an area that holds no entity of the target domain is a guaranteed
+    MatchFailedError, and the catalog is right here - so decide now rather
+    than spend a round trip finding out.
+    """
+    in_area = [
+        e for e in entities_by_id.values()
+        if e.area_id == area_id and e.domain == domain
+    ]
+    if in_area:
+        return AreaResolution(AreaOutcome.USE_AREA)
+
+    if spec.single_target:
+        # The handler picks exactly one target, and without a preference a
+        # multi-candidate match fails outright with MULTIPLE_TARGETS.
+        return AreaResolution(AreaOutcome.PREFER_AREA)
+
+    candidates = [e for e in entities_by_id.values() if e.domain == domain]
+    if len(candidates) == 1:
+        return AreaResolution(AreaOutcome.USE_ONLY_ENTITY, candidates[0])
+
+    return AreaResolution(AreaOutcome.CLARIFY)
 
 
 def _clarify_or_fall_back(

@@ -174,7 +174,13 @@ ACTIONS: dict[tuple[str, str], ActionSpec] = {
         relative=True,
     ),
     ("media_player", "search_and_play"): ActionSpec(
-        INTENT_MEDIA_SEARCH_AND_PLAY, needs_text="search_query"
+        INTENT_MEDIA_SEARCH_AND_PLAY,
+        needs_text="search_query",
+        # MediaSearchAndPlayHandler sets single_target internally. Saying so
+        # here matters: the router branches on this flag when an area holds no
+        # player, and a single-target handler is the one case where widening
+        # to the home is safe.
+        single_target=True,
     ),
     # -- simple trigger domains ----------------------------------------------
     ("scene", "activate"): ActionSpec(INTENT_TURN_ON),
@@ -205,12 +211,10 @@ ACTIONS: dict[tuple[str, str], ActionSpec] = {
         INTENT_LIST_REMOVE_ITEM, needs_text="item", name_only=True
     ),
     # -- water heater ---------------------------------------------------------
-    ("water_heater", "set_temperature"): ActionSpec(
-        INTENT_CLIMATE_SET_TEMPERATURE,
-        value_slot="temperature",
-        value_kind="temperature",
-        single_target=True,
-    ),
+    # No set_temperature mapping: HassClimateSetTemperature declares
+    # platforms={climate}, so it can never match a water_heater entity and the
+    # call is a guaranteed MatchFailedError. Falling back is more useful than
+    # sending a request we know cannot succeed.
 }
 
 # Actions that move a value up rather than down. Used to sign a relative step.
