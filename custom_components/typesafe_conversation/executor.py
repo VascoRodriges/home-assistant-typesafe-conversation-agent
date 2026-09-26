@@ -303,8 +303,22 @@ async def _handle(
     )
 
 
-def describe_action(plan: Plan) -> str:
-    """Compose speech for a plan, used when the handler gives us none."""
+def describe_action(plan: Plan, response: intent.IntentResponse | None = None) -> str:
+    """Compose speech for a command that succeeded.
+
+    Home Assistant's service intent handlers set targets and states but no
+    speech - the words normally come from default_agent's response templates,
+    which this agent bypasses. So if we do not say something, nothing does,
+    the pipeline skips TTS entirely, and a command that worked is
+    indistinguishable from one that hung.
+    """
+    # HassMediaSearchAndPlay reports what it found in speech_slots rather than
+    # speech. Naming the track is far better than a generic acknowledgement.
+    if response is not None:
+        media = (response.speech_slots or {}).get("media")
+        if isinstance(media, dict) and media.get("title"):
+            return f"Playing {media['title']} on {plan.target.described}."
+
     verb = ACTION_VERBS.get(plan.action or "", "Did that to")
     return f"{verb} {plan.target.described}."
 

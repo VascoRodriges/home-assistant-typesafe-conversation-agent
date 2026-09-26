@@ -70,6 +70,10 @@ class Route(StrEnum):
     CLARIFY = "clarify"
     CONFIRM = "confirm"
     FALLBACK = "fallback"
+    UNAVAILABLE = "unavailable"
+    """The target exists but cannot act. Terminal, never the fallback ladder:
+    hassil would resolve the same dead entity and the LLM would apologise
+    vaguely, when the useful answer is to name what is unavailable."""
 
 
 @dataclass(slots=True)
@@ -158,6 +162,7 @@ def route(
     available_domains: frozenset[str],
     always_confirm_risky: bool = True,
     catalog_floors: dict[str, str] | None = None,
+    unavailable_ids: frozenset[str] = frozenset(),
 ) -> Plan:
     """Decide what to do. Pure - depends only on its arguments."""
     category = response.choice(Q.Q_CATEGORY)
@@ -228,6 +233,7 @@ def route(
             available_domains=available_domains,
             always_confirm_risky=always_confirm_risky,
             catalog_floors=catalog_floors or {},
+            unavailable_ids=unavailable_ids,
             trace=trace,
         )
 
@@ -296,6 +302,7 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     available_domains: frozenset[str],
     always_confirm_risky: bool,
     catalog_floors: dict[str, str],
+    unavailable_ids: frozenset[str],
     trace: dict[str, Any],
 ) -> Plan:
     scope = response.choice(Q.Q_SCOPE)
@@ -427,8 +434,32 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
             reason="no usable target",
         )
 
+    if target.entity is not None and target.entity.entity_id in unavailable_ids:
+        dead = target.entity
+        stand_in = _substitute_unavailable(
+            dead, target_entity, entities_by_id, unavailable_ids
+        )
+        trace["unavailable_target"] = dead.entity_id
+        if stand_in is None:
+            # Nothing else can serve. Say which thing is down - dispatching
+            # would surface a service-layer error that names nothing useful.
+            return Plan(
+                Route.UNAVAILABLE,
+                reason=f"{dead.entity_id} is unavailable",
+                domain=domain,
+                action=action,
+                target=target,
+                speech=f"{dead.name} is unavailable.",
+                trace=trace,
+            )
+        trace["substituted_for"] = stand_in.entity_id
+        target.entity = stand_in
+        target.area_id = stand_in.area_id
+
     if chosen_area is not None:
-        resolution = _resolve_area(chosen_area, domain, spec, entities_by_id)
+        resolution = _resolve_area(
+            chosen_area, domain, spec, entities_by_id, unavailable_ids
+        )
         trace["area_resolution"] = resolution.outcome.value
         match resolution.outcome:
             case AreaOutcome.USE_AREA:
@@ -490,8 +521,11 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
         if target.entity is not None and target_entity is not None
         else 1.0,
     )
-    plan.name_target_in_speech = deciding < CONF_ACT_TERSE or (
-        trace.get("area_resolution") == AreaOutcome.USE_ONLY_ENTITY.value
+    plan.name_target_in_speech = (
+        deciding < CONF_ACT_TERSE
+        or trace.get("area_resolution") == AreaOutcome.USE_ONLY_ENTITY.value
+        # The user named one thing and we used another; say which.
+        or "substituted_for" in trace
     )
     trace["deciding_confidence"] = round(deciding, 3)
     if deciding < CONF_ACT_EXPLICIT:
@@ -552,6 +586,7 @@ def _resolve_area(
     domain: str,
     spec: ActionSpec,
     entities_by_id: dict[str, CatalogEntity],
+    unavailable_ids: frozenset[str] = frozenset(),
 ) -> AreaResolution:
     """Decide how to target an area, given what the catalog says is in it.
 
@@ -559,9 +594,12 @@ def _resolve_area(
     MatchFailedError, and the catalog is right here - so decide now rather
     than spend a round trip finding out.
     """
+    # An unavailable entity is not a candidate: counting it would send a
+    # request that cannot succeed, or name it as the only option.
     in_area = [
         e for e in entities_by_id.values()
         if e.area_id == area_id and e.domain == domain
+        and e.entity_id not in unavailable_ids
     ]
     if in_area:
         return AreaResolution(AreaOutcome.USE_AREA)
@@ -571,11 +609,44 @@ def _resolve_area(
         # multi-candidate match fails outright with MULTIPLE_TARGETS.
         return AreaResolution(AreaOutcome.PREFER_AREA)
 
-    candidates = [e for e in entities_by_id.values() if e.domain == domain]
+    candidates = [
+        e for e in entities_by_id.values()
+        if e.domain == domain and e.entity_id not in unavailable_ids
+    ]
     if len(candidates) == 1:
         return AreaResolution(AreaOutcome.USE_ONLY_ENTITY, candidates[0])
 
     return AreaResolution(AreaOutcome.CLARIFY)
+
+
+def _substitute_unavailable(
+    chosen: CatalogEntity,
+    target_entity: ChoiceAnswer | None,
+    entities_by_id: dict[str, CatalogEntity],
+    unavailable_ids: frozenset[str],
+) -> CatalogEntity | None:
+    """Find a working stand-in for an entity that cannot act.
+
+    The answer is a full distribution, not just a winner, so when the top
+    choice is dead the runners-up are already ranked by how well they fit the
+    request. Walk them for the best same-domain candidate that is actually
+    available, above a floor so a stray 0.01 is never promoted.
+    """
+    if target_entity is None:
+        return None
+    ranked = sorted(target_entity.probabilities.items(), key=lambda kv: -kv[1])
+    for entity_id, probability in ranked:
+        if probability < CONF_CLARIFY_FLOOR:
+            break
+        candidate = entities_by_id.get(entity_id)
+        if (
+            candidate is not None
+            and candidate.entity_id != chosen.entity_id
+            and candidate.domain == chosen.domain
+            and candidate.entity_id not in unavailable_ids
+        ):
+            return candidate
+    return None
 
 
 def _clarify_or_fall_back(

@@ -171,3 +171,91 @@ def test_unread_branches_are_ignored(entities_by_id, available_domains):
     plan, _ = _route("is_everything_locked_up", entities_by_id, available_domains)
     assert plan.route is Route.QUERY
     assert plan.action is None
+
+
+# --- targets that exist but cannot act ---------------------------------------
+# route() is pure, so all of this replays the *recorded* answers with a
+# synthetic availability set. No new API calls, and the model's real
+# probability distribution does the ranking.
+
+from custom_components.typesafe_conversation.system_one import ChoiceAnswer
+
+
+def _route_with(name, entities_by_id, available_domains, *, dead=frozenset(),
+                override_entity=None):
+    response, payload = load_response(name)
+    if override_entity is not None:
+        response.answers["target_entity"] = override_entity
+    utterance = payload["utterance"]
+    return route(
+        response,
+        entities_by_id=entities_by_id,
+        extraction=extract(
+            utterance,
+            want_media="media_player" in available_domains,
+            want_color="light" in available_domains,
+        ),
+        speaker_area_id=payload["spoken_from_area"],
+        available_domains=available_domains,
+        unavailable_ids=dead,
+    )
+
+
+def test_an_unavailable_target_is_named_not_dispatched(
+    entities_by_id, available_domains
+):
+    """The live failure: dispatching produced a service error naming nothing."""
+    plan = _route_with(
+        "make_the_lights_a_bit_warmer", entities_by_id, available_domains,
+        dead=frozenset({"light.kitchen_ceiling", "light.kitchen_under_cabinet"}),
+    )
+    assert plan.route is Route.UNAVAILABLE
+    assert plan.speech == "Kitchen Ceiling is unavailable."
+    assert plan.trace["unavailable_target"] == "light.kitchen_ceiling"
+
+
+def test_a_weak_runner_up_is_not_promoted(entities_by_id, available_domains):
+    """The only other light scores 0.01 - too weak to silently act on."""
+    plan = _route_with(
+        "make_the_lights_a_bit_warmer", entities_by_id, available_domains,
+        dead=frozenset({"light.kitchen_ceiling"}),
+    )
+    assert plan.route is Route.UNAVAILABLE
+    assert "substituted_for" not in plan.trace
+
+
+def test_a_credible_alternative_is_used_and_named(
+    entities_by_id, available_domains
+):
+    """When the distribution offers a real second choice, use it - and say so."""
+    plan = _route_with(
+        "make_the_lights_a_bit_warmer", entities_by_id, available_domains,
+        dead=frozenset({"light.kitchen_ceiling"}),
+        override_entity=ChoiceAnswer(
+            choice="light.kitchen_ceiling",
+            probabilities={
+                "light.kitchen_ceiling": 0.55,
+                "light.kitchen_under_cabinet": 0.40,
+                "no_single_entity": 0.05,
+            },
+            confidence=0.80,
+        ),
+    )
+    assert plan.route is Route.COMMAND
+    assert plan.target.entity.entity_id == "light.kitchen_under_cabinet"
+    assert plan.trace["substituted_for"] == "light.kitchen_under_cabinet"
+    assert plan.name_target_in_speech, "we used a different device; say which"
+
+
+def test_availability_changes_nothing_when_everything_is_alive(
+    entities_by_id, available_domains
+):
+    """No behaviour drift for the ordinary case."""
+    before = _route_with("get_the_coffee_boiling", entities_by_id, available_domains)
+    after = _route_with(
+        "get_the_coffee_boiling", entities_by_id, available_domains,
+        dead=frozenset({"light.bedroom_ceiling"}),  # unrelated entity
+    )
+    assert before.route is after.route is Route.COMMAND
+    assert before.target.entity.entity_id == after.target.entity.entity_id
+    assert "unavailable_target" not in after.trace
