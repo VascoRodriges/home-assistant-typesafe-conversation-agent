@@ -334,3 +334,59 @@ async def test_the_old_hard_area_slot_would_have_failed(hass: HomeAssistant):
         intent.MatchTargetsPreferences(),
     )
     assert not result.is_match, "if this ever matches, the fix is unnecessary"
+
+
+def test_area_resolution_ignores_a_dead_entity():
+    """An unavailable entity must not count as the area's only candidate."""
+    from custom_components.typesafe_conversation.router import (
+        AreaOutcome,
+        _resolve_area,
+    )
+
+    one_dead = [_entity("light.only", "Only", "kitchen", "light")]
+    by_id = {e.entity_id: e for e in one_dead}
+    spec = spec_for("light", "turn_on")
+
+    alive = _resolve_area("garage", "light", spec, by_id, frozenset())
+    assert alive.outcome is AreaOutcome.USE_ONLY_ENTITY
+
+    dead = _resolve_area(
+        "garage", "light", spec, by_id, frozenset({"light.only"})
+    )
+    assert dead.outcome is AreaOutcome.CLARIFY, (
+        "with its only candidate dead there is nothing to promote"
+    )
+
+
+async def test_a_query_against_an_unavailable_entity_still_runs(
+    hass: HomeAssistant,
+):
+    """Commands and queries diverge here, on purpose.
+
+    "Is the speaker playing?" against a dead entity has a correct answer -
+    unavailable - so the query path must still dispatch. Only commands are
+    blocked, because they cannot succeed.
+    """
+    await _setup(hass)
+    registry = er.async_get(hass)
+    entry = registry.async_get_or_create("media_player", "demo", "spk")
+    hass.states.async_set(
+        entry.entity_id, "unavailable", {"friendly_name": "Kitchen Speaker"}
+    )
+    _expose(hass, entry.entity_id)
+
+    catalog = EntityCatalog(hass, conversation.DOMAIN)
+    entity = next(
+        e for e in catalog.entities if e.entity_id == entry.entity_id
+    )
+    from custom_components.typesafe_conversation.executor import (
+        async_execute_query,
+    )
+    from custom_components.typesafe_conversation.router import Plan, Route, Target
+
+    plan = Plan(
+        Route.QUERY, query_kind="device_state",
+        target=Target(entity=entity, domain="media_player"),
+    )
+    response = await async_execute_query(hass, plan, _input(hass))
+    assert response.response_type is not intent.IntentResponseType.ERROR

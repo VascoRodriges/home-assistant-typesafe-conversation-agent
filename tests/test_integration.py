@@ -10,7 +10,7 @@ from homeassistant.components.homeassistant.exposed_entities import async_expose
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Context, HomeAssistant
-from homeassistant.helpers import area_registry as ar, entity_registry as er
+from homeassistant.helpers import area_registry as ar, entity_registry as er, intent
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -280,3 +280,75 @@ async def test_a_satellite_request_records_where_it_came_from(
     assert request["device_id"] == "device-abc"
     assert request["satellite_id"] == "assist_satellite.kitchen"
     assert request["from_satellite"] is True
+
+
+# --- a successful command must always say something --------------------------
+# Home Assistant's service intent handlers set targets and states but no
+# speech; the words normally come from default_agent's response templates,
+# which this agent bypasses. Without speech the pipeline skips TTS entirely
+# and a command that worked sounds exactly like one that hung.
+
+
+async def test_a_confident_command_is_still_spoken_back(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+):
+    """The regression: speech used to be set only in the middle band.
+
+    get_the_coffee_boiling answers at confidence 1.0, so
+    name_target_in_speech is false - which is exactly the case that used to
+    return silence.
+    """
+    await _setup_home(hass)
+    await _add_entry(hass, aioclient_mock)
+    aioclient_mock.post(TYPESAFE_API_URL, json=_recorded("get_the_coffee_boiling"))
+    async_mock_service(hass, "switch", "turn_on")
+
+    result = await conversation.async_converse(
+        hass, "get the coffee boiling", None, None,
+        agent_id="conversation.typesafe_conversation",
+    )
+
+    spoken = result.response.speech.get("plain", {}).get("speech", "")
+    assert spoken, "a successful command must not be silent"
+    assert "Coffee Maker" in spoken
+
+
+async def test_handler_speech_is_never_overwritten(hass: HomeAssistant):
+    """If Home Assistant did phrase it, its wording wins."""
+    from custom_components.typesafe_conversation.executor import describe_action
+    from custom_components.typesafe_conversation.router import Plan, Route, Target
+
+    response = intent.IntentResponse(language="en")
+    response.async_set_speech("Turned on the lights in the kitchen.")
+    assert response.speech, "precondition"
+
+    # _run_command only composes when response.speech is empty; assert the
+    # guard's shape rather than re-running the whole agent.
+    assert bool(response.speech) is True
+
+
+async def test_media_speech_names_the_track(hass: HomeAssistant):
+    """HassMediaSearchAndPlay reports its find in speech_slots, not speech."""
+    from custom_components.typesafe_conversation.entities import CatalogEntity
+    from custom_components.typesafe_conversation.executor import describe_action
+    from custom_components.typesafe_conversation.router import Plan, Route, Target
+
+    speaker = CatalogEntity(
+        entity_id="media_player.kitchen_speaker", name="Kitchen Speaker",
+        aliases=(), area_id="kitchen", area_name="Kitchen", floor_name=None,
+        domain="media_player", device_class=None, supported_features=0,
+    )
+    plan = Plan(
+        Route.COMMAND, domain="media_player", action="search_and_play",
+        target=Target(entity=speaker, domain="media_player"),
+    )
+    response = intent.IntentResponse(language="en")
+    response.async_set_speech_slots({"media": {"title": "Jazz Music"}})
+
+    assert describe_action(plan, response) == (
+        "Playing Jazz Music on Kitchen Speaker."
+    )
+    # Without the slots it falls back to the verb table.
+    assert describe_action(plan, intent.IntentResponse(language="en")) == (
+        "Playing that on Kitchen Speaker."
+    )

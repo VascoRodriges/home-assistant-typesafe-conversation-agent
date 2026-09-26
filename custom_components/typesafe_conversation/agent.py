@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components import conversation
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar, intent
 from homeassistant.util import dt as dt_util
@@ -116,6 +117,7 @@ class TypeSafeAgent:
                 for a in self.catalog.areas
                 if a.floor_name
             },
+            unavailable_ids=self._unavailable_ids(),
         )
         record = {
             "utterance": text,
@@ -278,6 +280,11 @@ class TypeSafeAgent:
                     user_input, f"Did you mean the {names}?", continue_conversation=True
                 )
 
+            case Route.UNAVAILABLE:
+                # Terminal. The fallback ladder would resolve the same dead
+                # entity via hassil, then have the LLM apologise vaguely.
+                return self._speech(user_input, plan.speech or "That is unavailable.")
+
             case Route.CONFIRM:
                 return self._speech(
                     user_input, _confirm_question(plan), continue_conversation=True
@@ -309,10 +316,14 @@ class TypeSafeAgent:
                 f"Sorry, I couldn't do that. {err}",
             )
 
-        if plan.name_target_in_speech and not response.speech:
-            # Middle confidence band: act, but say what we acted on, so a wrong
-            # guess is something the user can immediately correct.
-            response.async_set_speech(describe_action(plan))
+        if not response.speech:
+            # A successful command must always say something. Nothing else
+            # will: the intent handlers set targets and states but no speech,
+            # so without this the pipeline skips TTS and the user cannot tell
+            # a command that worked from one that hung. name_target_in_speech
+            # only decides how specific to be - in the middle confidence band
+            # we name the target so a wrong guess can be corrected at once.
+            response.async_set_speech(describe_action(plan, response))
         return response
 
     async def _handle_compound(
@@ -356,6 +367,7 @@ class TypeSafeAgent:
                 speaker_area_id=speaker_area_id,
                 available_domains=frozenset(self.catalog.domains),
                 always_confirm_risky=self.settings.always_confirm_risky,
+                unavailable_ids=self._unavailable_ids(),
             )
             # Never stop mid-way to ask a question: the user said four things
             # and is not expecting an interrogation about the second.
@@ -421,6 +433,7 @@ class TypeSafeAgent:
                 for a in self.catalog.areas
                 if a.floor_name
             },
+            unavailable_ids=self._unavailable_ids(),
         )
         if plan.route is Route.COMPOUND:
             plan.route = Route.FALLBACK
@@ -494,6 +507,20 @@ class TypeSafeAgent:
         return self._speech(user_input, answer or "I'm not sure.")
 
     # -- small helpers --------------------------------------------------------
+
+    def _unavailable_ids(self) -> frozenset[str]:
+        """Entities that exist but cannot act, read fresh.
+
+        The catalog deliberately caches structure and never state, and route()
+        is pure, so availability is computed here and passed in. `unknown` is
+        not included: that entity is alive, its value simply is not known yet.
+        """
+        return frozenset(
+            entity.entity_id
+            for entity in self.catalog.entities
+            if (state := self.hass.states.get(entity.entity_id)) is None
+            or state.state == STATE_UNAVAILABLE
+        )
 
     def _speaker_area(
         self, user_input: conversation.ConversationInput
