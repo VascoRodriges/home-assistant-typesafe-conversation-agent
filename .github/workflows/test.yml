@@ -1,0 +1,55 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Both ends of the range declared in the README. The floor job is the
+          # point of the matrix: a supported version nobody runs the tests
+          # against is a guess, not a claim.
+          - harness: "0.13.329"   # homeassistant 2026.5.0 - the declared floor
+            label: "HA 2026.5.0 (floor)"
+          - harness: "0.13.348"   # homeassistant 2026.7.4 - current
+            label: "HA 2026.7.4 (current)"
+
+    name: ${{ matrix.label }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install the harness
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pytest-homeassistant-custom-component==${{ matrix.harness }}" syrupy
+
+      - name: Install the conversation component's own requirements
+        # Not pulled in by the harness, and the pins move with the core version,
+        # so read them off the homeassistant that was just installed rather than
+        # duplicating them per matrix entry.
+        run: |
+          pip install $(python -c "
+          import json, pathlib, homeassistant
+          root = pathlib.Path(homeassistant.__file__).parent / 'components'
+          reqs = set()
+          for component in ('conversation', 'intent', 'homeassistant'):
+              manifest = root / component / 'manifest.json'
+              reqs.update(json.loads(manifest.read_text()).get('requirements') or [])
+          print(' '.join(sorted(reqs)))
+          ")
+
+      - name: Show what is under test
+        run: python -c "import homeassistant.const as c; print('homeassistant', c.__version__)"
+
+      - run: python -m pytest
