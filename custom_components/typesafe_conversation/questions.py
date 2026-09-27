@@ -303,12 +303,16 @@ _ACTION_CRITERIA: dict[str, dict[str, str]] = {
         "set_temperature": "Set them to a specific target temperature.",
         "warmer": "Raise the temperature, with no specific value named.",
         "cooler": "Lower the temperature, with no specific value named.",
-        "set_mode": "Switch between heating, cooling, automatic, dry or fan.",
+        # No "set_mode": HassClimateSetTemperature is the only climate intent
+        # Home Assistant registers, so heat/cool/auto/dry cannot be reached.
     },
     "media_player": {
         "play": "Resume or start playback.",
-        "pause": "Pause playback.",
-        "stop": "Stop playback entirely.",
+        # Home Assistant has no stop-media intent, so "stop the music" and
+        # "pause the music" can only resolve to the same action. Offering both
+        # as separate options would split the probability between two synonyms
+        # and risk failing the margin gate on a perfectly clear request.
+        "pause": "Pause, stop or halt playback.",
         "next": "Skip to the next track or item.",
         "previous": "Go back to the previous track or item.",
         "set_volume": "Set the volume to a specific level.",
@@ -337,7 +341,9 @@ _ACTION_CRITERIA: dict[str, dict[str, str]] = {
     "water_heater": {
         "turn_on": "Switch it on.",
         "turn_off": "Switch it off.",
-        "set_temperature": "Set it to a specific target temperature.",
+        # No "set_temperature": water_heater registers no intents at all, and
+        # HassClimateSetTemperature declares platforms={climate}, so it refuses
+        # the domain. Power is all that can be reached from here.
     },
     "button": {"press": "Press it."},
     "input_boolean": {

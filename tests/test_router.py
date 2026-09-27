@@ -259,3 +259,200 @@ def test_availability_changes_nothing_when_everything_is_alive(
     assert before.route is after.route is Route.COMMAND
     assert before.target.entity.entity_id == after.target.entity.entity_id
     assert "unavailable_target" not in after.trace
+
+
+# --- the room the request was spoken in ------------------------------------
+#
+# The shape these cover: a request that names one thing but no device and no
+# room - "play that album", "turn it on". scope=single says a single target is
+# meant, target_entity cannot say which, target_area stays no_area, and
+# here_relative is low because the wording has no locative and no device word
+# for it to be relative about. Nothing in the answer points at a target; only
+# the room the request was spoken in does.
+
+def _answers(**overrides):
+    """A minimal command answer set. Overrides replace whole answers."""
+    def choice(pick, probabilities, confidence):
+        return {
+            "type": "choice",
+            "choice": pick,
+            "confidence": confidence,
+            "probabilities": probabilities,
+        }
+
+    answers = {
+        "category": choice("command", {"command": 0.98, "information": 0.02}, 0.96),
+        "compound": {"type": "noul", "noul": 0.05},
+        "query_kind": choice("not_a_query", {"not_a_query": 1.0}, 1.0),
+        "here_relative": {"type": "noul", "noul": 0.16},
+        "risky": {"type": "noul", "noul": 0.05},
+        "change_direction": choice("no_numeric", {"no_numeric": 1.0}, 1.0),
+        "magnitude": choice("not_applicable", {"not_applicable": 1.0}, 1.0),
+        "scope": choice("single", {"single": 0.88, "not_a_target": 0.12}, 0.85),
+        "target_area": choice("no_area", {"no_area": 0.56, "bedroom": 0.44}, 0.49),
+        "target_domain": choice("light", {"light": 0.9, "none": 0.1}, 0.85),
+        "target_entity": choice(
+            "no_single_entity",
+            {"no_single_entity": 0.49, "light.office_desk": 0.40, "light.hall": 0.11},
+            0.45,
+        ),
+        "action_light": choice("turn_on", {"turn_on": 0.9, "turn_off": 0.1}, 0.88),
+    }
+    answers.update(overrides)
+    return answers
+
+
+def _plan(entities_by_id, available_domains, *, spoken_from, **overrides):
+    from custom_components.typesafe_conversation.system_one import (
+        SystemOneResponse,
+        _parse_answer,
+    )
+
+    body = _answers(**overrides)
+    response = SystemOneResponse(
+        model="jev-1.13.0",
+        answers={k: _parse_answer(k, v) for k, v in body.items()},
+        input_tokens=0,
+        output_tokens=0,
+        latency_ms=0.0,
+        raw={"answers": body},
+    )
+    return route(
+        response,
+        entities_by_id=entities_by_id,
+        extraction=extract("turn it on", want_media=False, want_color=False),
+        speaker_area_id=spoken_from,
+        available_domains=available_domains,
+    )
+
+
+def test_a_room_holding_one_candidate_is_the_default_target(
+    entities_by_id, available_domains
+):
+    """Nothing named, spoken in the office, which has exactly one light."""
+    plan = _plan(entities_by_id, available_domains, spoken_from="office")
+
+    assert plan.route is Route.COMMAND
+    assert plan.target.area_id == "office"
+    assert plan.trace["speaker_area_default"] == "office"
+
+
+def test_a_room_holding_several_is_not_silently_acted_on(
+    entities_by_id, available_domains
+):
+    """The bedroom has two lights and scope=single says one was meant.
+
+    Widening to the area would switch on both, which is worse than admitting
+    we do not know - so the default must not apply here.
+    """
+    plan = _plan(entities_by_id, available_domains, spoken_from="bedroom")
+
+    assert plan.route is not Route.COMMAND
+    assert "speaker_area_default" not in plan.trace
+
+
+def test_the_default_needs_a_known_room(entities_by_id, available_domains):
+    """A request with no satellite behind it has no room to fall back on."""
+    plan = _plan(entities_by_id, available_domains, spoken_from=None)
+
+    assert plan.route is not Route.COMMAND
+
+
+# --- what a clarification may offer ----------------------------------------
+
+
+def _entity_answer(probabilities, confidence):
+    return {
+        "type": "choice",
+        "choice": "no_single_entity",
+        "confidence": confidence,
+        "probabilities": probabilities,
+    }
+
+
+def test_a_clarification_only_offers_the_domain_that_was_chosen(
+    entities_by_id, available_domains
+):
+    """The regression: a request to play music was answered with a vacuum.
+
+    target_entity ranks every exposed entity, so the runner-up is whatever
+    sorted highest overall - the domain is already decided by this point and
+    must be applied.
+    """
+    plan = _plan(
+        entities_by_id,
+        available_domains,
+        spoken_from="bedroom",
+        target_domain={
+            "type": "choice", "choice": "media_player", "confidence": 0.6,
+            "probabilities": {"media_player": 0.65, "none": 0.31},
+        },
+        action_media_player={
+            "type": "choice", "choice": "search_and_play", "confidence": 0.82,
+            "probabilities": {"search_and_play": 0.84, "play": 0.10},
+        },
+        target_entity=_entity_answer(
+            {
+                "no_single_entity": 0.40,
+                "media_player.living_room_speaker": 0.22,
+                "vacuum.downstairs": 0.20,
+                "media_player.tv": 0.18,
+            },
+            0.45,
+        ),
+    )
+
+    assert plan.route is Route.CLARIFY
+    offered = {entity_id for entity_id, _ in plan.options}
+    assert offered == {"media_player.living_room_speaker", "media_player.tv"}
+
+
+def test_a_clear_leader_is_not_dressed_up_as_a_choice(
+    entities_by_id, available_domains
+):
+    """0.40 against 0.04 is one candidate and some noise, not two options.
+
+    Spoken from the living room, which holds two lights - so the speaker-area
+    default does not apply and this really does reach the clarify decision.
+    """
+    plan = _plan(
+        entities_by_id,
+        available_domains,
+        spoken_from="living_room",
+        target_entity=_entity_answer(
+            {
+                "no_single_entity": 0.49,
+                "light.office_desk": 0.40,
+                "light.hall": 0.04,
+                "light.bathroom": 0.03,
+            },
+            0.45,
+        ),
+    )
+
+    assert plan.route is not Route.CLARIFY
+
+
+def test_a_genuine_tie_is_still_asked_about(entities_by_id, available_domains):
+    """Two lights the model cannot separate: the question is worth asking."""
+    # Again from a room holding several, so the default cannot pre-empt it.
+    plan = _plan(
+        entities_by_id,
+        available_domains,
+        spoken_from="living_room",
+        target_entity=_entity_answer(
+            {
+                "no_single_entity": 0.60,
+                "light.office_desk": 0.14,
+                "light.hall": 0.08,
+                "light.bathroom": 0.01,
+            },
+            0.45,
+        ),
+    )
+
+    assert plan.route is Route.CLARIFY
+    assert {entity_id for entity_id, _ in plan.options} == {
+        "light.office_desk",
+        "light.hall",
+    }

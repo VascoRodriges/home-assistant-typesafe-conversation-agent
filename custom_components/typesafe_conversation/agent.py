@@ -316,6 +316,22 @@ class TypeSafeAgent:
                 f"Sorry, I couldn't do that. {err}",
             )
 
+        if failed := _wholly_failed(response):
+            # Home Assistant records the *area* it matched in success_results,
+            # so a response in which every entity refused the call still comes
+            # back as action_done with no error. Reading that as a win would
+            # have us cheerfully announce something that did not happen.
+            LOGGER.warning(
+                "%s reached no entity: %s rejected the call",
+                plan.reason,
+                ", ".join(failed),
+            )
+            return self._error(
+                user_input,
+                intent.IntentResponseErrorCode.FAILED_TO_HANDLE,
+                f"{_join(failed)} could not do that.",
+            )
+
         if not response.speech:
             # A successful command must always say something. Nothing else
             # will: the intent handlers set targets and states but no speech,
@@ -595,6 +611,29 @@ def _confirm_question(plan: Plan) -> str:
         return f"Do you want me to run {target}?"
     verb = (plan.action or "do that").replace("_", " ")
     return f"Do you want me to {verb} the {target}?"
+
+
+def _wholly_failed(response: intent.IntentResponse) -> list[str]:
+    """Names of the entities that refused, when *none* accepted.
+
+    async_handle_states puts the matched area in success_results whatever
+    becomes of the entities inside it, so response_type stays action_done and
+    error_code stays unset even when every service call was rejected. The only
+    honest signal is that failed_results holds entities and success_results
+    holds none. A partial success is left alone - something did happen.
+    """
+    if not response.failed_results:
+        return []
+    if any(
+        target.type == intent.IntentResponseTargetType.ENTITY
+        for target in response.success_results
+    ):
+        return []
+    return [
+        target.name
+        for target in response.failed_results
+        if target.type == intent.IntentResponseTargetType.ENTITY
+    ]
 
 
 def _with_text(
