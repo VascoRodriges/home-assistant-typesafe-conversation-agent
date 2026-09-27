@@ -83,6 +83,11 @@ Assistant configuration. They are never asked of the model.
 
 ## Install
 
+**Requires Home Assistant 2026.5.0 or newer.** Earlier releases do not report a
+failed service call back to the conversation agent, so a command that no entity
+could carry out would be announced as if it had worked. The integration is
+tested against 2026.5.0 and the current release on every change.
+
 Copy `custom_components/typesafe_conversation` into your Home Assistant `config`
 directory, restart, then **Settings → Devices & Services → Add Integration →
 TypeSafe Conversation**. You will need an API key from
@@ -182,13 +187,29 @@ if you would rather wait.
 ## Development
 
 ```sh
-python3.14 -m venv .venv        # Home Assistant 2026.7 requires Python 3.14
+python3.14 -m venv .venv        # Home Assistant 2026.5+ requires Python 3.14
 .venv/bin/pip install "pytest-homeassistant-custom-component==0.13.348" syrupy
+.venv/bin/pip install "hassil==3.8.0" "home-assistant-intents==2026.6.24"
 .venv/bin/python -m pytest
 ```
 
-`0.13.348` pins `homeassistant==2026.7.4` exactly; a mismatch produces confusing
-import errors.
+The harness version is a **test-environment** choice, not the supported range —
+see *Install* for that. Each release pins exactly one core version
+(`0.13.348` → `homeassistant==2026.7.4`, `0.13.329` → `2026.5.0`), and a mismatch
+against an already-installed `homeassistant` produces confusing import errors.
+
+The third line is the `conversation` component's own requirements, which the
+harness does not pull in — without them the import fails at `hassil`. Those pins
+move with the core version, so if you change the harness, read them off the
+`homeassistant` you actually installed:
+
+```sh
+.venv/bin/python -c "import json,pathlib,homeassistant as h; \
+  print(json.loads((pathlib.Path(h.__file__).parent/'components'/'conversation'/'manifest.json').read_text())['requirements'])"
+```
+
+CI runs the suite against both ends of the supported range on every push and
+pull request, deriving those requirements the same way.
 
 The routing tests replay **real recorded Jev responses** from
 `tests/fixtures/answers/`, so they describe how the model actually behaves

@@ -14,7 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-# Intent names, verified present in Home Assistant 2026.7.4.
+# Intent names, verified present in Home Assistant 2026.5.0 (the oldest core
+# this integration supports) and unchanged since.
 INTENT_TURN_ON: Final = "HassTurnOn"
 INTENT_TURN_OFF: Final = "HassTurnOff"
 INTENT_TOGGLE: Final = "HassToggle"
