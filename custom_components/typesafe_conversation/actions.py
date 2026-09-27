@@ -153,7 +153,12 @@ ACTIONS: dict[tuple[str, str], ActionSpec] = {
     # -- media player ---------------------------------------------------------
     ("media_player", "play"): ActionSpec(INTENT_MEDIA_UNPAUSE),
     ("media_player", "pause"): ActionSpec(INTENT_MEDIA_PAUSE),
-    ("media_player", "stop"): ActionSpec(INTENT_TURN_OFF),
+    # No longer offered as an option (see questions.py), but kept mapped so an
+    # answer that still names it routes somewhere sane. It must not be
+    # HassTurnOff: a media player is often a software endpoint with no power to
+    # cut, so turn_off is rejected by the entity while the matched area still
+    # counts as a success.
+    ("media_player", "stop"): ActionSpec(INTENT_MEDIA_PAUSE),
     ("media_player", "next"): ActionSpec(INTENT_MEDIA_NEXT),
     ("media_player", "previous"): ActionSpec(INTENT_MEDIA_PREVIOUS),
     ("media_player", "mute"): ActionSpec(INTENT_MEDIA_MUTE),

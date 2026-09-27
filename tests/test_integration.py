@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import patch
 
 import pytest
 from homeassistant.components import conversation
@@ -10,6 +11,7 @@ from homeassistant.components.homeassistant.exposed_entities import async_expose
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Context, HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar, entity_registry as er, intent
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import (
@@ -352,3 +354,118 @@ async def test_media_speech_names_the_track(hass: HomeAssistant):
     assert describe_action(plan, intent.IntentResponse(language="en")) == (
         "Playing that on Kitchen Speaker."
     )
+
+
+async def test_home_assistant_reports_an_all_failed_area_command_as_done(
+    hass: HomeAssistant,
+):
+    """The upstream behaviour the agent has to work around.
+
+    async_handle_states seeds success_results with the matched area before it
+    calls a single service, so the "no entity succeeded, raise" guard below it
+    never fires for an area-matched command. Every entity can refuse and the
+    response still comes back action_done with no error code.
+
+    If Home Assistant ever tightens this, this test fails and _wholly_failed
+    can go.
+    """
+    await _setup_home(hass)
+
+    async def _refuse(call):
+        raise HomeAssistantError("entity does not support this")
+
+    hass.services.async_register("switch", "turn_on", _refuse)
+
+    response = await intent.async_handle(
+        hass, "test", "HassTurnOn", {"area": {"value": "Kitchen"}}
+    )
+
+    assert response.response_type is intent.IntentResponseType.ACTION_DONE
+    assert response.error_code is None
+    assert [t.type for t in response.success_results] == [
+        intent.IntentResponseTargetType.AREA
+    ]
+    assert [t.id for t in response.failed_results] == ["switch.coffee_maker"]
+
+
+def test_wholly_failed_reads_the_targets_not_the_response_type():
+    """Only "entities failed and none succeeded" counts as a total failure."""
+    from custom_components.typesafe_conversation.agent import _wholly_failed
+
+    area = intent.IntentResponseTarget(
+        type=intent.IntentResponseTargetType.AREA, name="Kitchen", id="kitchen"
+    )
+    speaker = intent.IntentResponseTarget(
+        type=intent.IntentResponseTargetType.ENTITY,
+        name="Kitchen Speaker",
+        id="media_player.kitchen_speaker",
+    )
+    lamp = intent.IntentResponseTarget(
+        type=intent.IntentResponseTargetType.ENTITY,
+        name="Kitchen Lamp",
+        id="light.kitchen_lamp",
+    )
+
+    def _response(success, failed):
+        response = intent.IntentResponse(language="en")
+        response.async_set_results(success_results=success, failed_results=failed)
+        return response
+
+    # The reported trace: the area counts as a success, the only entity failed.
+    assert _wholly_failed(_response([area], [speaker])) == ["Kitchen Speaker"]
+    # Something did happen - leave it alone.
+    assert _wholly_failed(_response([area, lamp], [speaker])) == []
+    # Nothing failed.
+    assert _wholly_failed(_response([area, lamp], [])) == []
+
+
+async def test_a_command_that_reached_no_entity_is_reported_as_failed(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+):
+    """The regression: a wholly failed command used to be announced as done.
+
+    Paired with "a successful command is always spoken back", reading this
+    response as a success would have the agent say "Turned on the Coffee
+    Maker." over a service call that was refused.
+    """
+    await _setup_home(hass)
+    await _add_entry(hass, aioclient_mock)
+    aioclient_mock.post(TYPESAFE_API_URL, json=_recorded("get_the_coffee_boiling"))
+
+    async def _refuse(call):
+        raise HomeAssistantError("entity does not support this")
+
+    hass.services.async_register("switch", "turn_on", _refuse)
+
+    area_success = intent.IntentResponseTarget(
+        type=intent.IntentResponseTargetType.AREA, name="Kitchen", id="kitchen"
+    )
+    entity_failure = intent.IntentResponseTarget(
+        type=intent.IntentResponseTargetType.ENTITY,
+        name="Coffee Maker",
+        id="switch.coffee_maker",
+    )
+
+    async def _all_entities_refused(hass, plan, user_input, catalog):
+        response = intent.IntentResponse(language="en")
+        response.async_set_results(
+            success_results=[area_success], failed_results=[entity_failure]
+        )
+        return response
+
+    with patch(
+        "custom_components.typesafe_conversation.agent.async_execute",
+        _all_entities_refused,
+    ):
+        result = await conversation.async_converse(
+            hass, "get the coffee boiling", None, None,
+            agent_id="conversation.typesafe_conversation",
+        )
+
+    assert result.response.response_type is intent.IntentResponseType.ERROR
+    assert (
+        result.response.error_code
+        is intent.IntentResponseErrorCode.FAILED_TO_HANDLE
+    )
+    spoken = result.response.speech.get("plain", {}).get("speech", "")
+    assert "Coffee Maker" in spoken

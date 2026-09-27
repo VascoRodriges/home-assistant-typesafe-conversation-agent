@@ -119,3 +119,47 @@ def test_validator_rejects_a_malformed_question():
         )
     with pytest.raises(QuestionSetError, match="unknown question type"):
         validate_questions({"x": {"type": "vibe", "instructions": "hmm"}})
+
+
+def test_every_offered_action_has_a_spec():
+    """The two tables must not drift.
+
+    An action offered to Jev that no spec can route is a dead end: the model
+    picks it, the router finds nothing, and the request falls back for no
+    visible reason.
+    """
+    from custom_components.typesafe_conversation.actions import spec_for
+    from custom_components.typesafe_conversation.questions import _ACTION_CRITERIA
+
+    missing = [
+        (domain, action)
+        for domain, actions in _ACTION_CRITERIA.items()
+        for action in actions
+        if spec_for(domain, action) is None
+    ]
+    assert not missing
+
+
+def test_no_media_action_routes_through_a_power_intent():
+    """Media players routinely expose no power at all.
+
+    A software endpoint - a streaming or cast player - commonly supports STOP
+    and PAUSE but not TURN_OFF, so HassTurnOff is rejected by the entity. The
+    rejection is easy to miss because Home Assistant counts the matched area
+    as a success, so the response still reports action_done.
+    """
+    from custom_components.typesafe_conversation.actions import ACTIONS
+    from custom_components.typesafe_conversation.questions import _ACTION_CRITERIA
+
+    power = {"HassTurnOn", "HassTurnOff"}
+    routed = {
+        action: spec.intent_type
+        for (domain, action), spec in ACTIONS.items()
+        if domain == "media_player"
+    }
+    offered = _ACTION_CRITERIA["media_player"]
+    assert not {a for a in offered if routed.get(a) in power}
+    # Home Assistant has no stop-media intent, so both words mean pause.
+    assert routed["stop"] == routed["pause"] == "HassMediaPause"
+    # ... and only one of them is offered, or they would split the vote.
+    assert "stop" not in _ACTION_CRITERIA["media_player"]
