@@ -146,13 +146,6 @@ def _solid(answer: ChoiceAnswer | None, threshold: float) -> bool:
     )
 
 
-def _top_options(
-    answer: ChoiceAnswer, exclude: set[str], limit: int = 2
-) -> tuple[str, ...]:
-    ranked = sorted(answer.probabilities.items(), key=lambda kv: -kv[1])
-    return tuple(name for name, _ in ranked if name not in exclude)[:limit]
-
-
 def route(
     response: SystemOneResponse,
     *,
@@ -408,11 +401,18 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     ):
         # The user asked for one specific thing and we could not work out
         # which. Widening to the whole area would act on devices they did not
-        # mention, so ask instead - see the clarify branch below.
-        return _clarify_or_fall_back(
-            domain, action, target_entity, entities_by_id, trace,
-            reason="scope=single but no confident entity",
-        )
+        # mention, so ask instead - unless the room the request was spoken in
+        # holds exactly one of these, in which case there is nothing to widen.
+        if (here_area := _lone_candidate_area(
+            speaker_area_id, domain, entities_by_id, unavailable_ids
+        )) is not None:
+            trace["speaker_area_default"] = here_area
+            chosen_area = here_area
+        else:
+            return _clarify_or_fall_back(
+                domain, action, target_entity, entities_by_id, trace,
+                reason="scope=single but no confident entity",
+            )
     elif (
         _solid(target_area, T_AREA)
         and target_area is not None
@@ -428,6 +428,11 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
             Route.FALLBACK, reason=f"{spec.intent_type} needs a named entity",
             trace=trace,
         )
+    elif (here_area := _lone_candidate_area(
+        speaker_area_id, domain, entities_by_id, unavailable_ids
+    )) is not None:
+        trace["speaker_area_default"] = here_area
+        chosen_area = here_area
     else:
         return _clarify_or_fall_back(
             domain, action, target_entity, entities_by_id, trace,
@@ -619,6 +624,37 @@ def _resolve_area(
     return AreaResolution(AreaOutcome.CLARIFY)
 
 
+def _lone_candidate_area(
+    speaker_area_id: str | None,
+    domain: str,
+    entities_by_id: dict[str, CatalogEntity],
+    unavailable_ids: frozenset[str],
+) -> str | None:
+    """The room the request was spoken in, when it can only mean one device.
+
+    A request that names neither a device nor a room, spoken to a satellite
+    standing in a room, means that room. The here-relative noul cannot carry
+    this on its own: it asks whether the wording depends on where the speaker
+    is standing, which scores low when the request names no device either -
+    there is no locative and no device word for it to be relative about.
+
+    Restricted to rooms holding exactly one candidate, where "target the area"
+    and "target that one device" are the same instruction. Where the room holds
+    several, the caller's scope=single still means the user meant one of them,
+    and acting on all of them is not an improvement over asking.
+    """
+    if not speaker_area_id:
+        return None
+    in_area = [
+        entity
+        for entity in entities_by_id.values()
+        if entity.area_id == speaker_area_id
+        and entity.domain == domain
+        and entity.entity_id not in unavailable_ids
+    ]
+    return speaker_area_id if len(in_area) == 1 else None
+
+
 def _substitute_unavailable(
     chosen: CatalogEntity,
     target_entity: ChoiceAnswer | None,
@@ -666,20 +702,31 @@ def _clarify_or_fall_back(
     is a worse experience than simply letting another matcher try.
     """
     if target_entity is not None and target_entity.confidence >= CONF_CLARIFY_FLOOR:
-        options = tuple(
-            (eid, entities_by_id[eid].name)
-            for eid in _top_options(
-                target_entity, exclude={Q.NO_SINGLE_ENTITY}, limit=2
+        # Only candidates that could actually serve this command. The
+        # distribution covers every exposed entity, so without the domain
+        # filter a request to play music can be answered with a vacuum cleaner.
+        ranked = [
+            (entity_id, probability)
+            for entity_id, probability in sorted(
+                target_entity.probabilities.items(), key=lambda kv: -kv[1]
             )
-            if eid in entities_by_id
-        )
-        if len(options) >= 2:
+            if entity_id != Q.NO_SINGLE_ENTITY
+            and entity_id in entities_by_id
+            and entities_by_id[entity_id].domain == domain
+        ]
+        # ... and only when the top two are genuinely too close to call. A
+        # clear leader with a 0.03 behind it is one candidate and some noise:
+        # reading the noise out as a real alternative invites the wrong answer.
+        if len(ranked) >= 2 and ranked[0][1] - ranked[1][1] < MIN_MARGIN:
             return Plan(
                 Route.CLARIFY,
                 reason=reason,
                 domain=domain,
                 action=action,
-                options=options,
+                options=tuple(
+                    (entity_id, entities_by_id[entity_id].name)
+                    for entity_id, _ in ranked[:2]
+                ),
                 trace=trace,
             )
     return Plan(Route.FALLBACK, reason=reason, trace=trace)
