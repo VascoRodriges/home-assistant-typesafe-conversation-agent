@@ -9,21 +9,65 @@ lifted from the utterance or from a closed set we control.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 # Colour names accepted by homeassistant.util.color.color_name_to_rgb, trimmed
 # to the ones a person actually says out loud. Offering all 149 CSS names would
 # spend tokens on "lightgoldenrodyellow".
 COLOR_NAMES: tuple[str, ...] = (
-    "red", "orange", "yellow", "green", "blue", "purple", "pink", "white",
-    "black", "brown", "grey", "cyan", "magenta", "gold", "silver", "beige",
-    "turquoise", "teal", "lime", "olive", "navy", "maroon", "violet", "indigo",
-    "salmon", "coral", "crimson", "lavender", "plum", "orchid", "khaki",
-    "tan", "ivory", "mintcream", "peachpuff", "aqua", "azure", "bisque", "chocolate",
-    "tomato", "wheat", "skyblue", "seagreen", "hotpink", "darkred",
-    "darkgreen", "darkblue", "darkorange", "lightblue", "lightgreen",
-    "lightyellow", "lightpink",
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "blue",
+    "purple",
+    "pink",
+    "white",
+    "black",
+    "brown",
+    "grey",
+    "cyan",
+    "magenta",
+    "gold",
+    "silver",
+    "beige",
+    "turquoise",
+    "teal",
+    "lime",
+    "olive",
+    "navy",
+    "maroon",
+    "violet",
+    "indigo",
+    "salmon",
+    "coral",
+    "crimson",
+    "lavender",
+    "plum",
+    "orchid",
+    "khaki",
+    "tan",
+    "ivory",
+    "mintcream",
+    "peachpuff",
+    "aqua",
+    "azure",
+    "bisque",
+    "chocolate",
+    "tomato",
+    "wheat",
+    "skyblue",
+    "seagreen",
+    "hotpink",
+    "darkred",
+    "darkgreen",
+    "darkblue",
+    "darkorange",
+    "lightblue",
+    "lightgreen",
+    "lightyellow",
+    "lightpink",
 )
 
 # Colour-temperature presets. Users say "warmer", not "2700 kelvin".
@@ -59,12 +103,34 @@ _VALUE_WORDS: dict[str, int] = {
 }
 
 _NUMBER_WORDS: dict[str, int] = {
-    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
-    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
-    "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
-    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+    "thirty": 30,
+    "forty": 40,
+    "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
     "hundred": 100,
 }
 
@@ -78,7 +144,8 @@ _WORD_NUMBER_RE = re.compile(
     re.IGNORECASE,
 )
 _VALUE_WORD_RE = re.compile(
-    r"\b(" + "|".join(re.escape(w) for w in sorted(_VALUE_WORDS, key=len, reverse=True))
+    r"\b("
+    + "|".join(re.escape(w) for w in sorted(_VALUE_WORDS, key=len, reverse=True))
     + r")\b",
     re.IGNORECASE,
 )
@@ -186,8 +253,16 @@ def mentions_color(utterance: str) -> bool:
     return any(
         word in lowered
         for word in (
-            "colour", "color", "warm", "cool", "cosy", "cozy", "daylight",
-            "white", "tint", "hue",
+            "colour",
+            "color",
+            "warm",
+            "cool",
+            "cosy",
+            "cozy",
+            "daylight",
+            "white",
+            "tint",
+            "hue",
         )
     )
 

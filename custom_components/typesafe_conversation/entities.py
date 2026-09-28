@@ -13,12 +13,12 @@ rebuilt lazily when a registry or exposure event marks it dirty. Current
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 from operator import attrgetter
-import re
 from typing import Any
 
 from homeassistant.components.homeassistant import async_should_expose
@@ -29,9 +29,17 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State, callback
 from homeassistant.helpers import (
     area_registry as ar,
+)
+from homeassistant.helpers import (
     device_registry as dr,
+)
+from homeassistant.helpers import (
     entity_registry as er,
+)
+from homeassistant.helpers import (
     floor_registry as fr,
+)
+from homeassistant.helpers import (
     intent,
 )
 from homeassistant.util import dt as dt_util
@@ -81,14 +89,38 @@ CONTROLLABLE_DOMAINS = frozenset(
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "light": ("light", "lights", "lamp", "lamps", "bulb", "brightness", "dim"),
     "switch": ("switch", "plug", "outlet", "socket"),
-    "cover": ("blind", "blinds", "shade", "shades", "curtain", "curtains",
-              "garage", "shutter", "awning"),
+    "cover": (
+        "blind",
+        "blinds",
+        "shade",
+        "shades",
+        "curtain",
+        "curtains",
+        "garage",
+        "shutter",
+        "awning",
+    ),
     "lock": ("lock", "locks", "unlock", "deadbolt"),
     "fan": ("fan", "fans"),
-    "climate": ("thermostat", "heating", "heat", "cooling", "ac", "aircon",
-                "temperature"),
-    "media_player": ("speaker", "speakers", "tv", "music", "volume", "play",
-                     "playing", "song"),
+    "climate": (
+        "thermostat",
+        "heating",
+        "heat",
+        "cooling",
+        "ac",
+        "aircon",
+        "temperature",
+    ),
+    "media_player": (
+        "speaker",
+        "speakers",
+        "tv",
+        "music",
+        "volume",
+        "play",
+        "playing",
+        "song",
+    ),
     "scene": ("scene", "mood", "preset"),
     "script": ("routine", "script"),
     "vacuum": ("vacuum", "hoover", "roomba"),
@@ -236,8 +268,7 @@ class EntityCatalog:
         # insurance against a permanently stale catalog.
         if (
             not self._dirty
-            and len(self.hass.states.async_entity_ids())
-            == self._entity_count_at_build
+            and len(self.hass.states.async_entity_ids()) == self._entity_count_at_build
         ):
             return
         self._rebuild()
@@ -309,9 +340,7 @@ class EntityCatalog:
         entities.sort(key=lambda e: (e.area_name or "￿", e.domain, e.name))
 
         areas: list[CatalogArea] = []
-        for area in sorted(
-            area_registry.async_list_areas(), key=attrgetter("name")
-        ):
+        for area in sorted(area_registry.async_list_areas(), key=attrgetter("name")):
             if area.id not in used_area_ids:
                 continue
             floor_name = None
@@ -399,9 +428,9 @@ class EntityCatalog:
 
     # -- large homes ----------------------------------------------------------
 
-    def prefilter(self, utterance: str, speaker_area_id: str | None) -> tuple[
-        tuple[CatalogEntity, ...], bool
-    ]:
+    def prefilter(
+        self, utterance: str, speaker_area_id: str | None
+    ) -> tuple[tuple[CatalogEntity, ...], bool]:
         """Narrow the catalog to at most ``MAX_CHOICE_OPTIONS`` entities.
 
         Jev allows 255 options per Choice, so a home larger than that cannot be
@@ -414,11 +443,7 @@ class EntityCatalog:
             return self._entities, False
 
         words = _tokens(utterance)
-        area_hits = {
-            a.area_id
-            for a in self._areas
-            if _tokens(a.name) & words
-        }
+        area_hits = {a.area_id for a in self._areas if _tokens(a.name) & words}
         domain_hits = {
             domain
             for domain, keywords in _DOMAIN_KEYWORDS.items()
@@ -448,9 +473,7 @@ class EntityCatalog:
         )
         kept = tuple(ranked[:MAX_CHOICE_OPTIONS])
         # Restore the stable display order within the kept set.
-        kept = tuple(
-            sorted(kept, key=lambda e: (e.area_name or "￿", e.domain, e.name))
-        )
+        kept = tuple(sorted(kept, key=lambda e: (e.area_name or "￿", e.domain, e.name)))
         LOGGER.debug(
             "Catalog prefiltered %s -> %s entities for %r",
             len(self._entities),
@@ -484,12 +507,15 @@ def _render_state(
 
         try:
             return async_rounded_state(hass, entity.entity_id, state)
-        except Exception:  # noqa: BLE001 - never let formatting break a request
+        except Exception:
             return state.state
 
-    if entity.device_class == "timestamp" and state.state:
-        if (parsed := dt_util.parse_datetime(state.state)) is not None:
-            return dt_util.as_local(parsed).isoformat()
+    if (
+        entity.device_class == "timestamp"
+        and state.state
+        and (parsed := dt_util.parse_datetime(state.state)) is not None
+    ):
+        return dt_util.as_local(parsed).isoformat()
 
     return state.state
 

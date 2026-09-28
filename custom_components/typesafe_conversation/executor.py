@@ -18,17 +18,16 @@ from homeassistant.helpers import intent
 
 from .actions import (
     ACTION_VERBS,
-    INTENT_GET_CURRENT_DATE,
+    INTENT_CLIMATE_GET_TEMPERATURE,
     INTENT_GET_CURRENT_TIME,
     INTENT_GET_STATE,
-    INTENT_CLIMATE_GET_TEMPERATURE,
     INTENT_NEVERMIND,
     INTENT_TURN_OFF,
     INTENT_TURN_ON,
 )
 from .const import CONVERSATION_DOMAIN, DOMAIN, LOGGER
 from .entities import CONTROLLABLE_DOMAINS, EntityCatalog
-from .router import Plan, Route, Target
+from .router import Plan, Target
 
 
 class ExecutionError(Exception):
@@ -220,9 +219,7 @@ async def _execute_whole_house(
     last_error: Exception | None = None
     for domain in domains:
         try:
-            await _handle(
-                hass, intent_type, {"domain": _slot([domain])}, user_input
-            )
+            await _handle(hass, intent_type, {"domain": _slot([domain])}, user_input)
             succeeded.append(domain)
         except intent.MatchFailedError:
             # Nothing of that kind was in a state worth changing.
@@ -256,12 +253,8 @@ async def async_execute_query(
         if plan.target.area_id:
             slots["area"] = _slot(plan.target.area_id)
         if plan.target.entity is not None:
-            slots["name"] = _slot(
-                plan.target.entity.entity_id, plan.target.entity.name
-            )
-        return await _handle(
-            hass, INTENT_CLIMATE_GET_TEMPERATURE, slots, user_input
-        )
+            slots["name"] = _slot(plan.target.entity.entity_id, plan.target.entity.name)
+        return await _handle(hass, INTENT_CLIMATE_GET_TEMPERATURE, slots, user_input)
 
     slots = {}
     if plan.target.entity is not None:

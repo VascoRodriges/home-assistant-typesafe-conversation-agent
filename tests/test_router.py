@@ -8,10 +8,11 @@ say exactly which utterances start behaving differently.
 from __future__ import annotations
 
 import pytest
-
 from conftest import load_response
+
 from custom_components.typesafe_conversation.extraction import extract
 from custom_components.typesafe_conversation.router import Route, route
+from custom_components.typesafe_conversation.system_one import ChoiceAnswer
 
 
 def _route(name: str, entities_by_id, available_domains):
@@ -128,7 +129,9 @@ def test_unlocking_asks_before_acting(entities_by_id, available_domains):
 
 
 def test_ambiguous_target_asks_which_one(entities_by_id, available_domains):
-    plan, _ = _route("turn_on_the_thing_in_the_corner", entities_by_id, available_domains)
+    plan, _ = _route(
+        "turn_on_the_thing_in_the_corner", entities_by_id, available_domains
+    )
     assert plan.route in (Route.CLARIFY, Route.FALLBACK)
     if plan.route is Route.CLARIFY:
         assert len(plan.options) == 2
@@ -178,11 +181,10 @@ def test_unread_branches_are_ignored(entities_by_id, available_domains):
 # synthetic availability set. No new API calls, and the model's real
 # probability distribution does the ranking.
 
-from custom_components.typesafe_conversation.system_one import ChoiceAnswer
 
-
-def _route_with(name, entities_by_id, available_domains, *, dead=frozenset(),
-                override_entity=None):
+def _route_with(
+    name, entities_by_id, available_domains, *, dead=frozenset(), override_entity=None
+):
     response, payload = load_response(name)
     if override_entity is not None:
         response.answers["target_entity"] = override_entity
@@ -206,7 +208,9 @@ def test_an_unavailable_target_is_named_not_dispatched(
 ):
     """The live failure: dispatching produced a service error naming nothing."""
     plan = _route_with(
-        "make_the_lights_a_bit_warmer", entities_by_id, available_domains,
+        "make_the_lights_a_bit_warmer",
+        entities_by_id,
+        available_domains,
         dead=frozenset({"light.kitchen_ceiling", "light.kitchen_under_cabinet"}),
     )
     assert plan.route is Route.UNAVAILABLE
@@ -217,19 +221,21 @@ def test_an_unavailable_target_is_named_not_dispatched(
 def test_a_weak_runner_up_is_not_promoted(entities_by_id, available_domains):
     """The only other light scores 0.01 - too weak to silently act on."""
     plan = _route_with(
-        "make_the_lights_a_bit_warmer", entities_by_id, available_domains,
+        "make_the_lights_a_bit_warmer",
+        entities_by_id,
+        available_domains,
         dead=frozenset({"light.kitchen_ceiling"}),
     )
     assert plan.route is Route.UNAVAILABLE
     assert "substituted_for" not in plan.trace
 
 
-def test_a_credible_alternative_is_used_and_named(
-    entities_by_id, available_domains
-):
+def test_a_credible_alternative_is_used_and_named(entities_by_id, available_domains):
     """When the distribution offers a real second choice, use it - and say so."""
     plan = _route_with(
-        "make_the_lights_a_bit_warmer", entities_by_id, available_domains,
+        "make_the_lights_a_bit_warmer",
+        entities_by_id,
+        available_domains,
         dead=frozenset({"light.kitchen_ceiling"}),
         override_entity=ChoiceAnswer(
             choice="light.kitchen_ceiling",
@@ -253,7 +259,9 @@ def test_availability_changes_nothing_when_everything_is_alive(
     """No behaviour drift for the ordinary case."""
     before = _route_with("get_the_coffee_boiling", entities_by_id, available_domains)
     after = _route_with(
-        "get_the_coffee_boiling", entities_by_id, available_domains,
+        "get_the_coffee_boiling",
+        entities_by_id,
+        available_domains,
         dead=frozenset({"light.bedroom_ceiling"}),  # unrelated entity
     )
     assert before.route is after.route is Route.COMMAND
@@ -270,8 +278,10 @@ def test_availability_changes_nothing_when_everything_is_alive(
 # for it to be relative about. Nothing in the answer points at a target; only
 # the room the request was spoken in does.
 
+
 def _answers(**overrides):
     """A minimal command answer set. Overrides replace whole answers."""
+
     def choice(pick, probabilities, confidence):
         return {
             "type": "choice",
@@ -384,11 +394,15 @@ def test_a_clarification_only_offers_the_domain_that_was_chosen(
         available_domains,
         spoken_from="bedroom",
         target_domain={
-            "type": "choice", "choice": "media_player", "confidence": 0.6,
+            "type": "choice",
+            "choice": "media_player",
+            "confidence": 0.6,
             "probabilities": {"media_player": 0.65, "none": 0.31},
         },
         action_media_player={
-            "type": "choice", "choice": "search_and_play", "confidence": 0.82,
+            "type": "choice",
+            "choice": "search_and_play",
+            "confidence": 0.82,
             "probabilities": {"search_and_play": 0.84, "play": 0.10},
         },
         target_entity=_entity_answer(

@@ -12,7 +12,9 @@ from homeassistant.components import conversation
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import area_registry as ar, entity_registry as er, intent
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import intent
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import async_mock_service
 
@@ -74,8 +76,9 @@ async def test_entity_id_in_the_name_slot_resolves_exactly(hass: HomeAssistant):
         domain="light",
         action="turn_on",
         spec=spec_for("light", "turn_on"),
-        target=Target(entity=target_entity, area_id=target_entity.area_id,
-                      domain="light"),
+        target=Target(
+            entity=target_entity, area_id=target_entity.area_id, domain="light"
+        ),
     )
     await async_execute(hass, plan, _input(hass), catalog)
 
@@ -176,26 +179,34 @@ def _entity(entity_id, name, area, domain):
     from custom_components.typesafe_conversation.entities import CatalogEntity
 
     return CatalogEntity(
-        entity_id=entity_id, name=name, aliases=(), area_id=area,
-        area_name=area, floor_name=None, domain=domain,
-        device_class=None, supported_features=0,
+        entity_id=entity_id,
+        name=name,
+        aliases=(),
+        area_id=area,
+        area_name=area,
+        floor_name=None,
+        domain=domain,
+        device_class=None,
+        supported_features=0,
     )
 
 
 def _resolve(area, domain, action, entities):
     from custom_components.typesafe_conversation.router import _resolve_area
 
-    return _resolve_area(area, domain, spec_for(domain, action), {
-        e.entity_id: e for e in entities
-    })
+    return _resolve_area(
+        area, domain, spec_for(domain, action), {e.entity_id: e for e in entities}
+    )
 
 
 def test_an_area_with_a_match_keeps_the_hard_constraint():
     from custom_components.typesafe_conversation.router import AreaOutcome
 
     speakers = [_entity("media_player.a", "A", "kitchen", "media_player")]
-    assert _resolve("kitchen", "media_player", "search_and_play",
-                    speakers).outcome is AreaOutcome.USE_AREA
+    assert (
+        _resolve("kitchen", "media_player", "search_and_play", speakers).outcome
+        is AreaOutcome.USE_AREA
+    )
 
 
 def test_a_single_target_handler_prefers_the_area_instead():
@@ -232,8 +243,7 @@ def test_a_fan_out_command_asks_rather_than_widening():
         _entity("light.a", "A", "kitchen", "light"),
         _entity("light.b", "B", "bedroom", "light"),
     ]
-    assert _resolve("garage", "light", "turn_off",
-                    many).outcome is AreaOutcome.CLARIFY
+    assert _resolve("garage", "light", "turn_off", many).outcome is AreaOutcome.CLARIFY
 
 
 async def test_preferred_area_is_sent_instead_of_area(hass: HomeAssistant):
@@ -242,7 +252,9 @@ async def test_preferred_area_is_sent_instead_of_area(hass: HomeAssistant):
     from custom_components.typesafe_conversation.router import Plan, Route, Target
 
     plan = Plan(
-        Route.COMMAND, domain="media_player", action="search_and_play",
+        Route.COMMAND,
+        domain="media_player",
+        action="search_and_play",
         spec=spec_for("media_player", "search_and_play"),
         target=Target(domain="media_player"),
         preferred_area_id="upstairs",
@@ -272,16 +284,21 @@ async def test_an_area_with_no_speaker_still_matches_a_player(hass: HomeAssistan
     )
     registry.async_update_entity(speaker.entity_id, area_id=bedroom.id)
     hass.states.async_set(
-        speaker.entity_id, "idle",
-        {"friendly_name": "Bedroom Speaker",
-         "supported_features": int(F.SEARCH_MEDIA | F.PLAY_MEDIA)},
+        speaker.entity_id,
+        "idle",
+        {
+            "friendly_name": "Bedroom Speaker",
+            "supported_features": int(F.SEARCH_MEDIA | F.PLAY_MEDIA),
+        },
     )
     _expose(hass, speaker.entity_id)
 
     from custom_components.typesafe_conversation.router import Plan, Route, Target
 
     plan = Plan(
-        Route.COMMAND, domain="media_player", action="search_and_play",
+        Route.COMMAND,
+        domain="media_player",
+        action="search_and_play",
         spec=spec_for("media_player", "search_and_play"),
         target=Target(domain="media_player"),
         preferred_area_id=upstairs.id,
@@ -292,15 +309,17 @@ async def test_an_area_with_no_speaker_still_matches_a_player(hass: HomeAssistan
 
     # Exactly the constraints MediaSearchAndPlayHandler builds.
     constraints = intent.MatchTargetsConstraints(
-        name=None, area_name=slots.get("area", {}).get("value"),
-        domains={"media_player"}, assistant=conversation.DOMAIN,
-        features=F.SEARCH_MEDIA | F.PLAY_MEDIA, single_target=True,
+        name=None,
+        area_name=slots.get("area", {}).get("value"),
+        domains={"media_player"},
+        assistant=conversation.DOMAIN,
+        features=F.SEARCH_MEDIA | F.PLAY_MEDIA,
+        single_target=True,
     )
     result = intent.async_match_targets(
-        hass, constraints,
-        intent.MatchTargetsPreferences(
-            area_id=slots["preferred_area_id"]["value"]
-        ),
+        hass,
+        constraints,
+        intent.MatchTargetsPreferences(area_id=slots["preferred_area_id"]["value"]),
     )
     assert result.is_match, "the old hard-area slot failed here"
     assert [s.entity_id for s in result.states] == [speaker.entity_id]
@@ -318,18 +337,23 @@ async def test_the_old_hard_area_slot_would_have_failed(hass: HomeAssistant):
     speaker = registry.async_get_or_create("media_player", "demo", "spk")
     registry.async_update_entity(speaker.entity_id, area_id=bedroom.id)
     hass.states.async_set(
-        speaker.entity_id, "idle",
-        {"friendly_name": "Bedroom Speaker",
-         "supported_features": int(F.SEARCH_MEDIA | F.PLAY_MEDIA)},
+        speaker.entity_id,
+        "idle",
+        {
+            "friendly_name": "Bedroom Speaker",
+            "supported_features": int(F.SEARCH_MEDIA | F.PLAY_MEDIA),
+        },
     )
     _expose(hass, speaker.entity_id)
 
     result = intent.async_match_targets(
         hass,
         intent.MatchTargetsConstraints(
-            area_name=upstairs.id, domains={"media_player"},
+            area_name=upstairs.id,
+            domains={"media_player"},
             assistant=conversation.DOMAIN,
-            features=F.SEARCH_MEDIA | F.PLAY_MEDIA, single_target=True,
+            features=F.SEARCH_MEDIA | F.PLAY_MEDIA,
+            single_target=True,
         ),
         intent.MatchTargetsPreferences(),
     )
@@ -350,9 +374,7 @@ def test_area_resolution_ignores_a_dead_entity():
     alive = _resolve_area("garage", "light", spec, by_id, frozenset())
     assert alive.outcome is AreaOutcome.USE_ONLY_ENTITY
 
-    dead = _resolve_area(
-        "garage", "light", spec, by_id, frozenset({"light.only"})
-    )
+    dead = _resolve_area("garage", "light", spec, by_id, frozenset({"light.only"}))
     assert dead.outcome is AreaOutcome.CLARIFY, (
         "with its only candidate dead there is nothing to promote"
     )
@@ -376,16 +398,15 @@ async def test_a_query_against_an_unavailable_entity_still_runs(
     _expose(hass, entry.entity_id)
 
     catalog = EntityCatalog(hass, conversation.DOMAIN)
-    entity = next(
-        e for e in catalog.entities if e.entity_id == entry.entity_id
-    )
+    entity = next(e for e in catalog.entities if e.entity_id == entry.entity_id)
     from custom_components.typesafe_conversation.executor import (
         async_execute_query,
     )
     from custom_components.typesafe_conversation.router import Plan, Route, Target
 
     plan = Plan(
-        Route.QUERY, query_kind="device_state",
+        Route.QUERY,
+        query_kind="device_state",
         target=Target(entity=entity, domain="media_player"),
     )
     response = await async_execute_query(hass, plan, _input(hass))

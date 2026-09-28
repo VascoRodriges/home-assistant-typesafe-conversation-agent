@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, override
 
 import voluptuous as vol
-
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -32,19 +31,18 @@ from .const import (
     BACKEND_OLLAMA,
     BACKEND_OPENAI_COMPAT,
     CONF_ALWAYS_CONFIRM_RISKY,
+    CONF_API_KEY,
     CONF_BYPASS_LOCAL_INTENTS,
     CONF_INLINE_ENTITY_DESCRIPTIONS,
-    CONF_API_KEY,
-    CONF_MODEL,
     CONF_LLM_API_KEY,
     CONF_LLM_BACKEND,
     CONF_LLM_BASE_URL,
-    CONF_LLM_TIMEOUT,
     CONF_LLM_MODEL,
+    CONF_LLM_TIMEOUT,
+    CONF_MODEL,
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     DEFAULT_MODEL,
     DEFAULT_OLLAMA_URL,
-    DEFAULT_OPENAI_COMPAT_URL,
     DOMAIN,
     LOGGER,
 )
@@ -109,7 +107,7 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_auth"
             except SystemOneError:
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 LOGGER.exception("Unexpected error validating the TypeSafe key")
                 errors["base"] = "unknown"
             else:
@@ -147,9 +145,7 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="llm", data_schema=STEP_LLM_SCHEMA)
 
     @override
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(

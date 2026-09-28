@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-
 from conftest import build_catalog
+
 from custom_components.typesafe_conversation.const import MAX_CHOICE_OPTIONS
 from custom_components.typesafe_conversation.entities import CatalogEntity
 from custom_components.typesafe_conversation.extraction import extract

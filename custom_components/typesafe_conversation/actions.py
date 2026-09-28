@@ -80,15 +80,27 @@ ACTIONS: dict[tuple[str, str], ActionSpec] = {
     **{
         (domain, "turn_on"): ActionSpec(INTENT_TURN_ON)
         for domain in (
-            "light", "switch", "fan", "climate", "media_player", "humidifier",
-            "water_heater", "input_boolean",
+            "light",
+            "switch",
+            "fan",
+            "climate",
+            "media_player",
+            "humidifier",
+            "water_heater",
+            "input_boolean",
         )
     },
     **{
         (domain, "turn_off"): ActionSpec(INTENT_TURN_OFF)
         for domain in (
-            "light", "switch", "fan", "climate", "media_player", "humidifier",
-            "water_heater", "input_boolean",
+            "light",
+            "switch",
+            "fan",
+            "climate",
+            "media_player",
+            "humidifier",
+            "water_heater",
+            "input_boolean",
         )
     },
     **{
@@ -100,11 +112,15 @@ ACTIONS: dict[tuple[str, str], ActionSpec] = {
         INTENT_LIGHT_SET, value_slot="brightness", value_kind="percent"
     ),
     ("light", "brighter"): ActionSpec(
-        INTENT_LIGHT_SET, value_slot="brightness", value_kind="percent",
+        INTENT_LIGHT_SET,
+        value_slot="brightness",
+        value_kind="percent",
         relative=True,
     ),
     ("light", "dimmer"): ActionSpec(
-        INTENT_LIGHT_SET, value_slot="brightness", value_kind="percent",
+        INTENT_LIGHT_SET,
+        value_slot="brightness",
+        value_kind="percent",
         relative=True,
     ),
     ("light", "set_color"): ActionSpec(INTENT_LIGHT_SET, needs_text="color"),
@@ -123,11 +139,15 @@ ACTIONS: dict[tuple[str, str], ActionSpec] = {
         INTENT_FAN_SET_SPEED, value_slot="percentage", value_kind="percent"
     ),
     ("fan", "faster"): ActionSpec(
-        INTENT_FAN_SET_SPEED, value_slot="percentage", value_kind="percent",
+        INTENT_FAN_SET_SPEED,
+        value_slot="percentage",
+        value_kind="percent",
         relative=True,
     ),
     ("fan", "slower"): ActionSpec(
-        INTENT_FAN_SET_SPEED, value_slot="percentage", value_kind="percent",
+        INTENT_FAN_SET_SPEED,
+        value_slot="percentage",
+        value_kind="percent",
         relative=True,
     ),
     # -- climate --------------------------------------------------------------

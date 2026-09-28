@@ -17,15 +17,18 @@ import csv
 import json
 import os
 import re
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import aiohttp
 
-from custom_components.typesafe_conversation.const import DEFAULT_MODEL, TYPESAFE_API_URL
+from custom_components.typesafe_conversation.const import (
+    DEFAULT_MODEL,
+    TYPESAFE_API_URL,
+)
 from custom_components.typesafe_conversation.entities import CatalogArea, CatalogEntity
 from custom_components.typesafe_conversation.extraction import extract
 from custom_components.typesafe_conversation.questions import (
@@ -61,7 +64,9 @@ REGRESSION: list[tuple[str, str]] = [
 ]
 
 
-def load_home(path: Path) -> tuple[dict, tuple[CatalogEntity, ...], tuple[CatalogArea, ...], tuple[str, ...]]:
+def load_home(
+    path: Path,
+) -> tuple[dict, tuple[CatalogEntity, ...], tuple[CatalogArea, ...], tuple[str, ...]]:
     home = json.loads(path.read_text())
     areas = tuple(
         CatalogArea(area_id=a["id"], name=a["name"], floor_name=a.get("floor"))
@@ -179,9 +184,16 @@ async def main() -> None:
             )
             print(f"  compound : {answers['compound']['noul']:.2f}")
             for qid in (
-                "scope", "target_domain", "target_entity", "target_area",
-                "query_kind", "change_direction", "magnitude",
-                "value_pick", "color_pick", "media_query_span",
+                "scope",
+                "target_domain",
+                "target_entity",
+                "target_area",
+                "query_kind",
+                "change_direction",
+                "magnitude",
+                "value_pick",
+                "color_pick",
+                "media_query_span",
             ):
                 if qid not in answers:
                     continue
