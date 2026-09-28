@@ -45,6 +45,7 @@ from .const import (
     DEFAULT_OLLAMA_URL,
     DOMAIN,
     LOGGER,
+    TYPESAFE_CONSOLE_URL,
 )
 from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 
@@ -115,7 +116,12 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_llm()
 
         return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors
+            step_id="user",
+            data_schema=STEP_USER_SCHEMA,
+            errors=errors,
+            # hassfest rejects a literal URL inside a translated string, so the
+            # console link is supplied here instead.
+            description_placeholders={"console_url": TYPESAFE_CONSOLE_URL},
         )
 
     async def async_step_llm(
