@@ -8,21 +8,21 @@ aiohttp session HA already manages keeps the integration dependency-free.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
 import time
+from dataclasses import dataclass, field
 from typing import Any
 
 import aiohttp
 
 from .const import (
-    CIRCUIT_FAILURE_THRESHOLD,
-    CIRCUIT_RESET_SECONDS,
-    TYPESAFE_API_URL,
     API_BACKOFF,
     API_MAX_RETRIES,
-    TYPESAFE_MODELS_URL,
     API_TIMEOUT,
+    CIRCUIT_FAILURE_THRESHOLD,
+    CIRCUIT_RESET_SECONDS,
     LOGGER,
+    TYPESAFE_API_URL,
+    TYPESAFE_MODELS_URL,
 )
 
 
@@ -189,9 +189,11 @@ class SystemOneClient:
                 last_error = err
                 if attempt == API_MAX_RETRIES - 1:
                     break
-                delay = err.retry_after if isinstance(
-                    err, _RetryableError
-                ) and err.retry_after else API_BACKOFF[attempt]
+                delay = (
+                    err.retry_after
+                    if isinstance(err, _RetryableError) and err.retry_after
+                    else API_BACKOFF[attempt]
+                )
                 LOGGER.debug(
                     "Request attempt %s/%s failed (%s); retrying in %.2fs",
                     attempt + 1,
@@ -230,7 +232,9 @@ class SystemOneClient:
             return response
 
         self._record_failure()
-        raise SystemOneUnavailableError(str(last_error) if last_error else "System One unavailable")
+        raise SystemOneUnavailableError(
+            str(last_error) if last_error else "System One unavailable"
+        )
 
     async def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -250,7 +254,9 @@ class SystemOneClient:
                     # Our question builder produced something invalid. The body
                     # names the offending field, so log it loudly - the
                     # build-time validator should have caught this.
-                    raise SystemOneRequestError(f"The API rejected the request: {detail}")
+                    raise SystemOneRequestError(
+                        f"The API rejected the request: {detail}"
+                    )
                 if response.status in (429, 529):
                     raise _RetryableError(
                         f"The API returned {response.status}",
@@ -300,12 +306,12 @@ def _parse_retry_after(value: str | None) -> float | None:
 
 __all__ = [
     "ChoiceAnswer",
+    "NoulAnswer",
+    "ScoreAnswer",
     "SystemOneAuthError",
     "SystemOneClient",
     "SystemOneError",
     "SystemOneRequestError",
     "SystemOneResponse",
     "SystemOneUnavailableError",
-    "NoulAnswer",
-    "ScoreAnswer",
 ]

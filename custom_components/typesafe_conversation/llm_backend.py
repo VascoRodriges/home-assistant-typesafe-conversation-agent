@@ -12,12 +12,12 @@ failing LLM can delay an answer but can never block or corrupt a device action.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import asyncio
 import json
 import logging
 import re
 import time
+from abc import ABC, abstractmethod
 from typing import Any
 
 import aiohttp
@@ -131,7 +131,8 @@ class LLMBackend(ABC):
         and a slow link.
         """
 
-    async def async_warm_up(self) -> None:
+    # An optional hook, no-op by default - deliberately not abstract.
+    async def async_warm_up(self) -> None:  # noqa: B027
         """Nudge the model into memory. Overridden where it helps."""
 
     async def split_compound(self, utterance: str) -> list[str]:
@@ -398,8 +399,7 @@ def _log_exchange(
     system = next((m["content"] for m in messages if m["role"] == "system"), "")
     lines = [
         f"llm {backend} {model} {operation}",
-        f"  messages  : {len(messages)} "
-        f"(system {len(system)} chars, truncated below)",
+        f"  messages  : {len(messages)} (system {len(system)} chars, truncated below)",
         f"  system    : {system[:PROMPT_LOG_CHARS]!r}"
         + ("..." if len(system) > PROMPT_LOG_CHARS else ""),
         f"  reply     : {reply!r} ({len(reply)} chars)",
@@ -428,7 +428,6 @@ def _log_exchange(
     LOGGER.debug("\n".join(lines))
 
 
-
 async def _post_json(
     session: aiohttp.ClientSession,
     url: str,
@@ -450,7 +449,7 @@ async def _post_json(
                 return await response.json()
     except LLMBackendError:
         raise
-    except (TimeoutError, asyncio.TimeoutError) as err:
+    except TimeoutError as err:
         raise LLMBackendError(f"Timed out after {timeout}s") from err
     except aiohttp.ClientError as err:
         raise LLMBackendError(str(err)) from err
@@ -467,7 +466,7 @@ def _parse_string_array(raw: str) -> list[str]:
     for candidate in _candidates(raw):
         try:
             parsed = json.loads(candidate)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             continue
         if isinstance(parsed, list):
             items = [p.strip() for p in parsed if isinstance(p, str) and p.strip()]

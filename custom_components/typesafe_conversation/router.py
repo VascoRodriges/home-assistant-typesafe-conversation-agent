@@ -202,11 +202,7 @@ def route(
 
     # -- 4. a question about the home ----------------------------------------
     if category.choice == "query" and category.confidence >= T_CATEGORY_QUERY:
-        kind = (
-            query_kind.choice
-            if _solid(query_kind, T_QUERY_KIND)
-            else "needs_prose"
-        )
+        kind = query_kind.choice if _solid(query_kind, T_QUERY_KIND) else "needs_prose"
         plan = _plan_query(
             response,
             kind=kind,
@@ -324,7 +320,8 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     if _solid(target_domain, T_DOMAIN) and target_domain.choice != Q.NO_DOMAIN:
         domain = target_domain.choice
     # An entity is a stronger constraint than a domain guess: it implies one.
-    if entity is not None and _solid(target_entity, T_ENTITY):
+    # SIM102 suppressed: merging these makes a five-line boolean that reads worse.
+    if entity is not None and _solid(target_entity, T_ENTITY):  # noqa: SIM102
         if domain is None or (
             target_domain is not None
             and target_entity.confidence > target_domain.confidence
@@ -336,8 +333,10 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
         # no domain would raise IntentHandleError ("cannot target all
         # devices"), so the executor fans out over the controllable domains
         # instead of guessing one.
-        if scope is not None and scope.choice == "whole_house" and _solid(
-            scope, T_SCOPE_WHOLE_HOUSE
+        if (
+            scope is not None
+            and scope.choice == "whole_house"
+            and _solid(scope, T_SCOPE_WHOLE_HOUSE)
         ):
             return Plan(
                 Route.COMMAND,
@@ -356,7 +355,9 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     action_answer = response.choice(Q.action_question_id(domain))
     trace["action"] = _describe(action_answer)
     if action_answer is None:
-        return Plan(Route.FALLBACK, reason=f"no action answer for {domain}", trace=trace)
+        return Plan(
+            Route.FALLBACK, reason=f"no action answer for {domain}", trace=trace
+        )
     action_probability = action_answer.probabilities.get(action_answer.choice, 0.0)
     if (
         action_answer.choice == Q.NOT_TARGETED
@@ -364,8 +365,7 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     ):
         return Plan(
             Route.FALLBACK,
-            reason=f"action_{domain}={action_answer.choice} "
-            f"p={action_probability:.2f}",
+            reason=f"action_{domain}={action_answer.choice} p={action_probability:.2f}",
             trace=trace,
         )
     action = action_answer.choice
@@ -380,8 +380,10 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     target = Target(domain=domain)
     chosen_area: str | None = None
     preferred_area: str | None = None
-    if scope is not None and scope.choice == "whole_house" and _solid(
-        scope, T_SCOPE_WHOLE_HOUSE
+    if (
+        scope is not None
+        and scope.choice == "whole_house"
+        and _solid(scope, T_SCOPE_WHOLE_HOUSE)
     ):
         target.whole_house = True
     elif (
@@ -394,23 +396,25 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     elif entity is not None and _solid(target_entity, T_ENTITY):
         target.entity = entity
         target.area_id = entity.area_id
-    elif (
-        scope is not None
-        and scope.choice == "single"
-        and _solid(scope, T_SCOPE)
-    ):
+    elif scope is not None and scope.choice == "single" and _solid(scope, T_SCOPE):
         # The user asked for one specific thing and we could not work out
         # which. Widening to the whole area would act on devices they did not
         # mention, so ask instead - unless the room the request was spoken in
         # holds exactly one of these, in which case there is nothing to widen.
-        if (here_area := _lone_candidate_area(
-            speaker_area_id, domain, entities_by_id, unavailable_ids
-        )) is not None:
+        if (
+            here_area := _lone_candidate_area(
+                speaker_area_id, domain, entities_by_id, unavailable_ids
+            )
+        ) is not None:
             trace["speaker_area_default"] = here_area
             chosen_area = here_area
         else:
             return _clarify_or_fall_back(
-                domain, action, target_entity, entities_by_id, trace,
+                domain,
+                action,
+                target_entity,
+                entities_by_id,
+                trace,
                 reason="scope=single but no confident entity",
             )
     elif (
@@ -425,17 +429,24 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
         # This handler has no area slot, so without an entity there is nothing
         # we can legally send.
         return Plan(
-            Route.FALLBACK, reason=f"{spec.intent_type} needs a named entity",
+            Route.FALLBACK,
+            reason=f"{spec.intent_type} needs a named entity",
             trace=trace,
         )
-    elif (here_area := _lone_candidate_area(
-        speaker_area_id, domain, entities_by_id, unavailable_ids
-    )) is not None:
+    elif (
+        here_area := _lone_candidate_area(
+            speaker_area_id, domain, entities_by_id, unavailable_ids
+        )
+    ) is not None:
         trace["speaker_area_default"] = here_area
         chosen_area = here_area
     else:
         return _clarify_or_fall_back(
-            domain, action, target_entity, entities_by_id, trace,
+            domain,
+            action,
+            target_entity,
+            entities_by_id,
+            trace,
             reason="no usable target",
         )
 
@@ -479,7 +490,11 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
                 target.area_id = resolution.entity.area_id
             case AreaOutcome.CLARIFY:
                 return _clarify_or_fall_back(
-                    domain, action, target_entity, entities_by_id, trace,
+                    domain,
+                    action,
+                    target_entity,
+                    entities_by_id,
+                    trace,
                     reason=f"no {domain} in area {chosen_area}",
                 )
 
@@ -501,9 +516,7 @@ def _plan_command(  # noqa: C901 - one decision tree, kept in one place on purpo
     # The risky question is authoritative. An explicit unlock/open/disarm only
     # lowers the bar; requiring one would exempt scripts, whose action is
     # always "run", and security actions are commonly scripts.
-    risky_threshold = (
-        NOUL_RISKY_EXPLICIT if action in RISKY_ACTIONS else NOUL_RISKY
-    )
+    risky_threshold = NOUL_RISKY_EXPLICIT if action in RISKY_ACTIONS else NOUL_RISKY
     if risky >= risky_threshold:
         target_conf = (
             target_entity.confidence
@@ -602,8 +615,10 @@ def _resolve_area(
     # An unavailable entity is not a candidate: counting it would send a
     # request that cannot succeed, or name it as the only option.
     in_area = [
-        e for e in entities_by_id.values()
-        if e.area_id == area_id and e.domain == domain
+        e
+        for e in entities_by_id.values()
+        if e.area_id == area_id
+        and e.domain == domain
         and e.entity_id not in unavailable_ids
     ]
     if in_area:
@@ -615,7 +630,8 @@ def _resolve_area(
         return AreaResolution(AreaOutcome.PREFER_AREA)
 
     candidates = [
-        e for e in entities_by_id.values()
+        e
+        for e in entities_by_id.values()
         if e.domain == domain and e.entity_id not in unavailable_ids
     ]
     if len(candidates) == 1:

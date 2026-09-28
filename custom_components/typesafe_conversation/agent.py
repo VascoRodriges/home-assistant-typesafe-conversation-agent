@@ -16,13 +16,13 @@ from typing import Any
 from homeassistant.components import conversation
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import area_registry as ar, intent
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import intent
 from homeassistant.util import dt as dt_util
 
 from . import questions as Q
 from .const import (
     CATALOG_SUMMARY_MAX_ENTITIES,
-    CONVERSATION_DOMAIN,
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     LOGGER,
     MAX_HISTORY_TURNS,
@@ -36,9 +36,14 @@ from .executor import (
     describe_action,
 )
 from .extraction import extract
-from .system_one import SystemOneClient, SystemOneError, SystemOneRequestError, SystemOneResponse
 from .llm_backend import LLMBackend, LLMBackendError
 from .router import Plan, Route, route, should_try_llm_answer
+from .system_one import (
+    SystemOneClient,
+    SystemOneError,
+    SystemOneRequestError,
+    SystemOneResponse,
+)
 
 
 @dataclass(slots=True)
@@ -98,7 +103,9 @@ class TypeSafeAgent:
             # logged with the offending field; behave as if Jev were down.
             return await self._fallback(user_input, chat_log, None)
         except SystemOneError as err:
-            LOGGER.warning("System One unavailable (%s); using the fallback ladder", err)
+            LOGGER.warning(
+                "System One unavailable (%s); using the fallback ladder", err
+            )
             return await self._fallback(user_input, chat_log, None)
 
         plan = route(
@@ -113,9 +120,7 @@ class TypeSafeAgent:
             available_domains=frozenset(self.catalog.domains),
             always_confirm_risky=self.settings.always_confirm_risky,
             catalog_floors={
-                a.area_id: a.floor_name
-                for a in self.catalog.areas
-                if a.floor_name
+                a.area_id: a.floor_name for a in self.catalog.areas if a.floor_name
             },
             unavailable_ids=self._unavailable_ids(),
         )
@@ -302,9 +307,7 @@ class TypeSafeAgent:
         chat_log: conversation.ChatLog,
     ) -> intent.IntentResponse:
         try:
-            response = await async_execute(
-                self.hass, plan, user_input, self.catalog
-            )
+            response = await async_execute(self.hass, plan, user_input, self.catalog)
         except intent.MatchFailedError as err:
             LOGGER.debug("No match for %s (%s); falling back", plan.reason, err)
             return await self._fallback(user_input, chat_log, None)
@@ -354,8 +357,9 @@ class TypeSafeAgent:
         if len(parts) <= 1:
             # Not actually compound, or the split failed. Either way, one more
             # pass without the compound branch resolves it.
-            return await self._rerun_single(parts[0] if parts else user_input.text,
-                                            user_input, chat_log)
+            return await self._rerun_single(
+                parts[0] if parts else user_input.text, user_input, chat_log
+            )
 
         speaker_area_id = self._speaker_area(user_input)
         results = await asyncio.gather(
@@ -445,9 +449,7 @@ class TypeSafeAgent:
             available_domains=frozenset(self.catalog.domains),
             always_confirm_risky=self.settings.always_confirm_risky,
             catalog_floors={
-                a.area_id: a.floor_name
-                for a in self.catalog.areas
-                if a.floor_name
+                a.area_id: a.floor_name for a in self.catalog.areas if a.floor_name
             },
             unavailable_ids=self._unavailable_ids(),
         )
@@ -538,9 +540,7 @@ class TypeSafeAgent:
             or state.state == STATE_UNAVAILABLE
         )
 
-    def _speaker_area(
-        self, user_input: conversation.ConversationInput
-    ) -> str | None:
+    def _speaker_area(self, user_input: conversation.ConversationInput) -> str | None:
         if user_input.device_id is None:
             return None
         from homeassistant.helpers import device_registry as dr
@@ -563,9 +563,7 @@ class TypeSafeAgent:
             for user_text, assistant_text in self._history_pairs(chat_log)
         ]
 
-    def _history_pairs(
-        self, chat_log: conversation.ChatLog
-    ) -> list[tuple[str, str]]:
+    def _history_pairs(self, chat_log: conversation.ChatLog) -> list[tuple[str, str]]:
         pairs: list[tuple[str, str]] = []
         pending: str | None = None
         for content in chat_log.content:

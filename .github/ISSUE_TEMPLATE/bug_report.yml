@@ -1,0 +1,97 @@
+name: Bug report
+description: Something the agent did wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The pipeline trace below is the field that
+        decides whether this is diagnosable — please do not skip it.
+
+        **Redact before pasting.** A trace contains your entity IDs, your room
+        names and the exact words you said. Replace anything you would not post
+        publicly; the structure is what matters, not the names.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you said, what you expected, and what the agent did instead.
+      placeholder: |
+        I said "turn off the lamp" from the study speaker.
+        I expected the study lamp to turn off.
+        It asked "did you mean the Study Lamp or the Hall Light?" instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: trace
+    attributes:
+      label: Assist pipeline trace
+      description: |
+        Settings → Voice assistants → your pipeline → ⋮ → Debug, run the failing
+        phrase, then copy the trace. **Redact entity and room names first.**
+      render: yaml
+    validations:
+      required: true
+
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.7.4"
+    validations:
+      required: true
+
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration version
+      description: HACS shows it, or read `version` from the integration's manifest.json.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: llm
+    attributes:
+      label: Is an LLM backend configured?
+      description: |
+        The LLM path handles compound requests and general questions. Knowing
+        whether it is in play removes half the possible causes.
+      options:
+        - "No — TypeSafe only"
+        - "Yes — Ollama"
+        - "Yes — an OpenAI-compatible endpoint"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: entry-point
+    attributes:
+      label: How did you make the request?
+      options:
+        - "A voice satellite"
+        - "The Assist chat box in the UI"
+        - "conversation.process from an automation or script"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        Optional but useful. Add this to configuration.yaml, restart, and
+        reproduce:
+
+        ```yaml
+        logger:
+          logs:
+            custom_components.typesafe_conversation: debug
+        ```
+      render: shell
+    validations:
+      required: false

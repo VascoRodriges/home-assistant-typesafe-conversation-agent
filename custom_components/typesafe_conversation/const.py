@@ -26,6 +26,7 @@ LOGGER: Final = logging.getLogger(__package__)
 # --- TypeSafe System One ------------------------------------------------------
 TYPESAFE_API_URL: Final = "https://api.typesafe.ai/v1/systemone"
 TYPESAFE_MODELS_URL: Final = "https://api.typesafe.ai/v1/models"
+TYPESAFE_CONSOLE_URL: Final = "https://console.typesafe.ai/"
 DEFAULT_MODEL: Final = "jev-latest"
 """Jev is the only System One model today. An alias, so it follows releases."""
 API_TIMEOUT: Final = 6.0

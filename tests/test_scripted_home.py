@@ -31,8 +31,11 @@ import pytest
 from custom_components.typesafe_conversation.const import RISKY_ACTIONS
 from custom_components.typesafe_conversation.entities import CatalogEntity
 from custom_components.typesafe_conversation.extraction import extract
-from custom_components.typesafe_conversation.system_one import SystemOneResponse, _parse_answer
 from custom_components.typesafe_conversation.router import Route, route
+from custom_components.typesafe_conversation.system_one import (
+    SystemOneResponse,
+    _parse_answer,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 ANSWERS = FIXTURES / "scripted_answers"
@@ -113,7 +116,9 @@ def test_the_fixture_still_has_the_properties_these_tests_rely_on():
     """
     entities, _ = _catalog()
     domains = [e.domain for e in entities]
-    assert domains.count("script") >= 6, "need a domain whose action Choice has 2 options"
+    assert domains.count("script") >= 6, (
+        "need a domain whose action Choice has 2 options"
+    )
     ids = {e.entity_id for e in entities}
     assert {"script.security_disarm", "script.security_arm_home"} <= ids, (
         "the risky gate tests need a security script whose action is only 'run'"
@@ -130,8 +135,7 @@ def test_the_fixture_still_has_the_properties_these_tests_rely_on():
 
     home = json.loads((FIXTURES / "scripted_home.json").read_text())
     floor_like = [
-        a for a in home["areas"]
-        if a["name"].endswith("Level") and "floor" not in a
+        a for a in home["areas"] if a["name"].endswith("Level") and "floor" not in a
     ]
     assert floor_like, "need an area named like a floor but with no floor set"
 
@@ -168,7 +172,7 @@ def test_list_items_come_from_a_span_not_the_model(scripted):
 
 
 def test_an_area_named_like_a_floor_still_resolves(scripted):
-    """"Upstairs" is an area here, and no floor carries that name.
+    """ "Upstairs" is an area here, and no floor carries that name.
 
     Jev reads the request as floor-scoped. Bailing out when the floor cannot be
     resolved dead-ended a perfectly good command; falling through to area
@@ -221,8 +225,12 @@ def test_general_knowledge_reaches_the_llm(scripted):
 
 @pytest.mark.parametrize(
     "slug",
-    ["disarm_the_alarm", "open_the_driveway_gate", "unlock_the_side_door",
-     "open_the_side_door"],
+    [
+        "disarm_the_alarm",
+        "open_the_driveway_gate",
+        "unlock_the_side_door",
+        "open_the_side_door",
+    ],
 )
 def test_anything_that_reduces_security_asks_first(slug, scripted):
     plan = scripted(slug)
@@ -262,10 +270,15 @@ def test_ordinary_routines_are_not_gated(scripted):
     firing on those, confirmation fatigue makes it worthless.
     """
     benign = [
-        "start_the_morning_routine", "run_the_evening_routine",
-        "set_up_guest_mode", "start_movie_mode", "start_party_mode",
-        "start_the_bedtime_routine", "switch_to_away_mode",
-        "turn_on_the_study_lamp", "add_milk_to_the_shopping_list",
+        "start_the_morning_routine",
+        "run_the_evening_routine",
+        "set_up_guest_mode",
+        "start_movie_mode",
+        "start_party_mode",
+        "start_the_bedtime_routine",
+        "switch_to_away_mode",
+        "turn_on_the_study_lamp",
+        "add_milk_to_the_shopping_list",
         "start_the_robot_cleaner",
     ]
     for slug in benign:
@@ -284,7 +297,7 @@ def test_the_confirmation_names_the_script_readably(scripted):
 
 
 def test_an_area_with_no_player_widens_instead_of_failing(scripted):
-    """"Play jazz in the workshop" - and the workshop has no speaker.
+    """ "Play jazz in the workshop" - and the workshop has no speaker.
 
     Sending area=workshop as a hard constraint is a guaranteed
     MatchFailedError. search_and_play is single-target, so the area becomes a

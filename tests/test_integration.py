@@ -6,13 +6,16 @@ import json
 from unittest.mock import patch
 
 import pytest
+from conftest import ANSWERS
 from homeassistant.components import conversation
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import area_registry as ar, entity_registry as er, intent
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import intent
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -20,7 +23,6 @@ from pytest_homeassistant_custom_component.common import (
 )
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from conftest import ANSWERS
 from custom_components.typesafe_conversation.const import (
     CONF_ALWAYS_CONFIRM_RISKY,
     CONF_API_KEY,
@@ -104,7 +106,10 @@ async def test_a_command_reaches_the_service(
     calls = async_mock_service(hass, "switch", "turn_on")
 
     result = await conversation.async_converse(
-        hass, "get the coffee boiling", None, None,
+        hass,
+        "get the coffee boiling",
+        None,
+        None,
         agent_id="conversation.typesafe_conversation",
     )
 
@@ -136,7 +141,10 @@ async def test_jev_being_down_falls_back_rather_than_failing(
     aioclient_mock.post(TYPESAFE_API_URL, status=503, text="down")
 
     result = await conversation.async_converse(
-        hass, "turn on the coffee maker", None, None,
+        hass,
+        "turn on the coffee maker",
+        None,
+        None,
         agent_id="conversation.typesafe_conversation",
     )
     # No exception, and a response the pipeline can speak.
@@ -161,7 +169,10 @@ async def test_a_risky_action_asks_first(
     calls = async_mock_service(hass, "lock", "unlock")
 
     result = await conversation.async_converse(
-        hass, "unlock the front door", None, None,
+        hass,
+        "unlock the front door",
+        None,
+        None,
         agent_id="conversation.typesafe_conversation",
     )
     assert not calls, "must not unlock before the user confirms"
@@ -218,7 +229,10 @@ async def test_diagnostics_record_the_decision_and_redact_secrets(
     )
     async_mock_service(hass, "switch", "turn_on")
     await conversation.async_converse(
-        hass, "get the coffee boiling", None, None,
+        hass,
+        "get the coffee boiling",
+        None,
+        None,
         agent_id="conversation.typesafe_conversation",
     )
 
@@ -306,7 +320,10 @@ async def test_a_confident_command_is_still_spoken_back(
     async_mock_service(hass, "switch", "turn_on")
 
     result = await conversation.async_converse(
-        hass, "get the coffee boiling", None, None,
+        hass,
+        "get the coffee boiling",
+        None,
+        None,
         agent_id="conversation.typesafe_conversation",
     )
 
@@ -317,8 +334,6 @@ async def test_a_confident_command_is_still_spoken_back(
 
 async def test_handler_speech_is_never_overwritten(hass: HomeAssistant):
     """If Home Assistant did phrase it, its wording wins."""
-    from custom_components.typesafe_conversation.executor import describe_action
-    from custom_components.typesafe_conversation.router import Plan, Route, Target
 
     response = intent.IntentResponse(language="en")
     response.async_set_speech("Turned on the lights in the kitchen.")
@@ -336,20 +351,26 @@ async def test_media_speech_names_the_track(hass: HomeAssistant):
     from custom_components.typesafe_conversation.router import Plan, Route, Target
 
     speaker = CatalogEntity(
-        entity_id="media_player.kitchen_speaker", name="Kitchen Speaker",
-        aliases=(), area_id="kitchen", area_name="Kitchen", floor_name=None,
-        domain="media_player", device_class=None, supported_features=0,
+        entity_id="media_player.kitchen_speaker",
+        name="Kitchen Speaker",
+        aliases=(),
+        area_id="kitchen",
+        area_name="Kitchen",
+        floor_name=None,
+        domain="media_player",
+        device_class=None,
+        supported_features=0,
     )
     plan = Plan(
-        Route.COMMAND, domain="media_player", action="search_and_play",
+        Route.COMMAND,
+        domain="media_player",
+        action="search_and_play",
         target=Target(entity=speaker, domain="media_player"),
     )
     response = intent.IntentResponse(language="en")
     response.async_set_speech_slots({"media": {"title": "Jazz Music"}})
 
-    assert describe_action(plan, response) == (
-        "Playing Jazz Music on Kitchen Speaker."
-    )
+    assert describe_action(plan, response) == ("Playing Jazz Music on Kitchen Speaker.")
     # Without the slots it falls back to the verb table.
     assert describe_action(plan, intent.IntentResponse(language="en")) == (
         "Playing that on Kitchen Speaker."
@@ -458,14 +479,14 @@ async def test_a_command_that_reached_no_entity_is_reported_as_failed(
         _all_entities_refused,
     ):
         result = await conversation.async_converse(
-            hass, "get the coffee boiling", None, None,
+            hass,
+            "get the coffee boiling",
+            None,
+            None,
             agent_id="conversation.typesafe_conversation",
         )
 
     assert result.response.response_type is intent.IntentResponseType.ERROR
-    assert (
-        result.response.error_code
-        is intent.IntentResponseErrorCode.FAILED_TO_HANDLE
-    )
+    assert result.response.error_code is intent.IntentResponseErrorCode.FAILED_TO_HANDLE
     spoken = result.response.speech.get("plain", {}).get("speech", "")
     assert "Coffee Maker" in spoken

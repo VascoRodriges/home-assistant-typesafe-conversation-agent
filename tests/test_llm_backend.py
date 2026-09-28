@@ -44,8 +44,10 @@ def _openai(text: str) -> dict:
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ('["turn off the lights", "lock the door"]',
-         ["turn off the lights", "lock the door"]),
+        (
+            '["turn off the lights", "lock the door"]',
+            ["turn off the lights", "lock the door"],
+        ),
         ('```json\n["a", "b"]\n```', ["a", "b"]),
         ('Sure! Output: ["a", "b"]', ["a", "b"]),
         ('["only one"]', ["only one"]),
@@ -129,8 +131,12 @@ async def test_answer_raises_when_the_backend_fails(session, mocker):
     mocker.post("https://x.invalid/v1/chat/completions", status=502, text="bad")
     with pytest.raises(LLMBackendError):
         await backend.answer_freeform(
-            "hi", [], home_state="", local_time="10:00",
-            weekday="Monday", speaker_area=None,
+            "hi",
+            [],
+            home_state="",
+            local_time="10:00",
+            weekday="Monday",
+            speaker_area=None,
         )
 
 
@@ -174,7 +180,9 @@ async def test_ollama_metrics_are_normalized(session, mocker):
     mocker.post("http://ollama:11434/api/chat", json=OLLAMA_METRIC_BODY)
     text, metrics = await backend._chat(
         [{"role": "user", "content": "hi"}],
-        max_tokens=10, temperature=0.0, timeout=5,
+        max_tokens=10,
+        temperature=0.0,
+        timeout=5,
     )
     assert text == "A joke."
     assert metrics["prompt_tokens"] == 612
@@ -195,7 +203,9 @@ async def test_a_response_with_no_metrics_does_not_raise(session, mocker):
     )
     text, metrics = await backend._chat(
         [{"role": "user", "content": "hi"}],
-        max_tokens=10, temperature=0.0, timeout=5,
+        max_tokens=10,
+        temperature=0.0,
+        timeout=5,
     )
     assert text == "still fine"
     assert set(metrics) == {"elapsed_s"}
@@ -215,7 +225,9 @@ async def test_openai_compatible_reports_tokens_but_no_timing(session, mocker):
     )
     _text, metrics = await backend._chat(
         [{"role": "user", "content": "hi"}],
-        max_tokens=10, temperature=0.0, timeout=5,
+        max_tokens=10,
+        temperature=0.0,
+        timeout=5,
     )
     assert metrics["prompt_tokens"] == 100
     assert metrics["completion_tokens"] == 7
@@ -254,8 +266,12 @@ async def test_the_home_catalog_is_truncated_out_of_the_log(session, mocker):
 
     try:
         await backend.answer_freeform(
-            "tell me a joke", [], home_state=home_state,
-            local_time="10:00", weekday="Monday", speaker_area="Kitchen",
+            "tell me a joke",
+            [],
+            home_state=home_state,
+            local_time="10:00",
+            weekday="Monday",
+            speaker_area="Kitchen",
         )
     finally:
         logger.removeHandler(handler)

@@ -1,0 +1,38 @@
+# Lint and format configuration. CI enforces both `ruff check` and
+# `ruff format --check`, so run them before opening a pull request.
+line-length = 88
+target-version = "py314"
+
+[lint]
+select = [
+    "ASYNC", # async pitfalls - this integration is async end to end
+    "B",     # bugbear: likely bugs rather than style
+    "C4",    # comprehension clarity
+    "C90",   # mccabe complexity, so an explicit `noqa: C901` means something
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "I",     # import order
+    "ISC",   # implicit string concatenation
+    "LOG",   # logging misuse
+    "RUF",   # ruff's own rules
+    "SIM",   # simplifications
+    "UP",    # idioms available on the supported Python
+    "W",     # pycodestyle warnings
+]
+
+ignore = [
+    # Ruff would rather the timeout came from `asyncio.timeout()` at the call
+    # site. Here it is a user-facing option (`llm_timeout`) threaded through a
+    # backend interface, so a parameter is the right shape.
+    "ASYNC109",
+]
+
+[lint.mccabe]
+# _plan_command is one decision tree kept deliberately in one place; it carries
+# an explicit noqa. Nothing else should get near this.
+max-complexity = 15
+
+[lint.per-file-ignores]
+# The calibration and catalog scripts are operator tools: argv parsing and a
+# long linear main() are the point, not a smell.
+"scripts/*" = ["T20", "C901"]

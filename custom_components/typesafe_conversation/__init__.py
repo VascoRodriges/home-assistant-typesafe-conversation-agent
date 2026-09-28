@@ -1,7 +1,7 @@
 """The TypeSafe Conversation integration.
 
-Puts a TypeSafe System One model in front of the LLM as the decision layer: device commands
-and state queries resolve from typed answers in code, and only genuinely
+Puts a TypeSafe System One model in front of the LLM as the decision layer:
+device commands and state queries resolve from typed answers in code, and only genuinely
 generative work - splitting compound requests, answering general questions -
 reaches an LLM.
 """
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -19,24 +20,19 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.helpers.typing import ConfigType
-from homeassistant.components import conversation
-import homeassistant.util.dt as dt_util
-from datetime import datetime, timedelta
 
 from .const import (
     CONF_API_KEY,
-    CONVERSATION_DOMAIN,
     CONF_MODEL,
+    CONVERSATION_DOMAIN,
     DEFAULT_MODEL,
     DOMAIN,
-    LOGGER,
     TRACE_HISTORY,
     WARMUP_INTERVAL_SECONDS,
 )
 from .entities import EntityCatalog
-from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 from .llm_backend import LLMBackend, create_backend
+from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 
 PLATFORMS = [Platform.CONVERSATION]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -105,6 +101,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> 
         entry.async_create_background_task(
             hass, llm.async_warm_up(), "typesafe_llm_warmup", eager_start=False
         )
+
         async def _async_warm_up(_now: datetime) -> None:
             """Keep the model resident.
 
@@ -144,7 +141,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) ->
     return unloaded
 
 
-async def _async_update_listener(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> None:
+async def _async_update_listener(
+    hass: HomeAssistant, entry: TypeSafeConfigEntry
+) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
 
 

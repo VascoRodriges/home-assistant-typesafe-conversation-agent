@@ -394,9 +394,7 @@ _DOMAIN_CRITERIA: dict[str, str] = {
 def _action_question(domain: str) -> Question:
     label = _ACTION_LABELS.get(domain, f"{domain} entities")
     criteria = dict(_ACTION_CRITERIA.get(domain, {}))
-    criteria[NOT_TARGETED] = (
-        f"The request is clearly not about {label} at all."
-    )
+    criteria[NOT_TARGETED] = f"The request is clearly not about {label} at all."
     return {
         "type": "choice",
         "instructions": (
@@ -499,7 +497,7 @@ def _value_pick_question(extraction: Extraction) -> Question:
 
 
 def _color_pick_question() -> Question:
-    criteria: dict[str, Any] = {name: None for name in COLOR_NAMES}
+    criteria: dict[str, Any] = dict.fromkeys(COLOR_NAMES)
     criteria.update(
         {
             "warm_white": "A warm, yellowish white, as in 'warmer' or 'cosy'.",
@@ -523,7 +521,7 @@ def _color_pick_question() -> Question:
 
 
 def _list_item_span_question(extraction: Extraction) -> Question:
-    criteria: dict[str, Any] = {chunk: None for chunk in extraction.media_chunks}
+    criteria: dict[str, Any] = dict.fromkeys(extraction.media_chunks)
     criteria[NO_VALUE] = "The request does not name an item."
     return {
         "type": "choice",
@@ -538,7 +536,7 @@ def _list_item_span_question(extraction: Extraction) -> Question:
 
 
 def _media_span_question(extraction: Extraction) -> Question:
-    criteria: dict[str, Any] = {chunk: None for chunk in extraction.media_chunks}
+    criteria: dict[str, Any] = dict.fromkeys(extraction.media_chunks)
     criteria[NO_VALUE] = "The request does not name any content to play."
     return {
         "type": "choice",
@@ -648,19 +646,19 @@ def estimate_tokens(payload: Any) -> int:
 
 
 __all__ = [
+    "COLOR_TEMP_PRESETS",
     "NOT_TARGETED",
     "NO_AREA",
     "NO_DOMAIN",
     "NO_SINGLE_ENTITY",
     "NO_VALUE",
-    "COLOR_TEMP_PRESETS",
     "Q_CATEGORY",
     "Q_CHANGE_DIRECTION",
     "Q_COLOR_PICK",
     "Q_COMPOUND",
     "Q_HERE_RELATIVE",
-    "Q_MAGNITUDE",
     "Q_LIST_ITEM_SPAN",
+    "Q_MAGNITUDE",
     "Q_MEDIA_SPAN",
     "Q_QUERY_KIND",
     "Q_RISKY",

@@ -17,7 +17,6 @@ import json
 import os
 import re
 from pathlib import Path
-import sys
 
 import aiohttp
 
@@ -99,14 +98,13 @@ async def main() -> None:
     if not url or not token:
         raise SystemExit("HA_BASE_URL and HA_TOKEN must be set (see .env.example)")
 
-    async with aiohttp.ClientSession() as session:
-        async with WS(session, url, token) as ws:
-            exposed = await ws.cmd("homeassistant/expose_entity/list")
-            states = await ws.cmd("get_states")
-            entity_reg = await ws.cmd("config/entity_registry/list")
-            device_reg = await ws.cmd("config/device_registry/list")
-            area_reg = await ws.cmd("config/area_registry/list")
-            floor_reg = await ws.cmd("config/floor_registry/list")
+    async with aiohttp.ClientSession() as session, WS(session, url, token) as ws:
+        exposed = await ws.cmd("homeassistant/expose_entity/list")
+        states = await ws.cmd("get_states")
+        entity_reg = await ws.cmd("config/entity_registry/list")
+        device_reg = await ws.cmd("config/device_registry/list")
+        area_reg = await ws.cmd("config/area_registry/list")
+        floor_reg = await ws.cmd("config/floor_registry/list")
 
     # The websocket API maps each assistant straight to a bool here, unlike
     # the storage format, which nests it under "should_expose".
@@ -180,9 +178,7 @@ async def main() -> None:
         payload = re.sub(
             r"NWS: -?\d+\.\d+, -?\d+\.\d+ \w+", "NWS: Local Station", payload
         )
-        payload = re.sub(
-            r"-?\d{1,3}\.\d{6,}", "0.0", payload
-        )
+        payload = re.sub(r"-?\d{1,3}\.\d{6,}", "0.0", payload)
         if payload != before:
             print("  (redacted coordinates; pass --keep-coordinates to disable)")
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -193,7 +189,10 @@ async def main() -> None:
         by_domain[e["domain"]] = by_domain.get(e["domain"], 0) + 1
     print(f"wrote {args.out}")
     print(f"  {len(entities)} exposed entities, {len(areas)} areas")
-    print(f"  {len(states)} states total ({len(entities) / max(len(states),1):.0%} exposed)")
+    print(
+        f"  {len(states)} states total "
+        f"({len(entities) / max(len(states), 1):.0%} exposed)"
+    )
     print("  domains: " + ", ".join(f"{d}={n}" for d, n in sorted(by_domain.items())))
     aliased = sum(1 for e in entities if e.get("also"))
     unassigned = sum(1 for e in entities if "area" not in e)

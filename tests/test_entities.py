@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
 from homeassistant.components import conversation
 from homeassistant.components.homeassistant.exposed_entities import async_expose_entity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import area_registry as ar, entity_registry as er
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 
 from custom_components.typesafe_conversation.entities import EntityCatalog
-
-
-
 
 
 async def _setup(hass: HomeAssistant) -> None:
