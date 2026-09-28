@@ -1,12 +1,21 @@
 # TypeSafe Conversation for Home Assistant
 
+[![tests](https://github.com/the-sof/home-assistant-typesafe-conversation-agent/actions/workflows/test.yml/badge.svg)](https://github.com/the-sof/home-assistant-typesafe-conversation-agent/actions/workflows/test.yml)
+[![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![HACS: custom](https://img.shields.io/badge/HACS-custom-orange.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
+
 A Home Assistant conversation agent that decides with a
 [TypeSafe System One](https://docs.typesafe.ai) model instead of an LLM.
 
+> **Status: early.** Expect rough edges, and please
+> [report them](../../issues/new?template=bug_report.yml). Requires a
+> [TypeSafe](https://console.typesafe.ai/) API key, which is metered — see
+> [Cost](#cost).
+
 A System One model returns typed, calibrated judgements rather than text. Jev is
 the one available today and the default; the integration is not written around
-it, so a later model is a config change. Every device command and state query is resolved from those judgements in
-ordinary Python, in a single API call, with a median round trip of ~250 ms. An
+it, so a later model is a config change. Every device command and state query
+is resolved from those judgements in ordinary Python, in a single API call. An
 LLM is used for exactly two things — splitting a request that contains several
 commands, and answering a general question — so the slow path is only taken when
 something actually has to be written in prose.
@@ -81,6 +90,45 @@ spans in the utterance and Jev picks which one the user meant:
 Temperature units come from the entity, or failing that from your Home
 Assistant configuration. They are never asked of the model.
 
+## What gets sent
+
+On every request this integration sends, to `https://api.typesafe.ai/v1/systemone`:
+
+- the text of the utterance
+- **every entity you have exposed to Assist** — its name, area, floor, domain,
+  device class and current state
+- the areas and floors in your home, by name
+
+That is the whole point of the design: the model is given the home as state and
+answers questions about it, rather than being asked to write code or call tools.
+But it means your device and room names, and what is currently on or off, leave
+your network. If that is not acceptable to you, this integration is not the
+right choice, and a fully local LLM agent is.
+
+What does **not** happen: nothing is stored by this project, there is no
+telemetry of its own, and the optional LLM backend is configured separately —
+point it at Ollama on your own machine and the prose path never leaves the
+house either. Diagnostics downloads redact the API key, the LLM base URL and
+your entity IDs.
+
+TypeSafe's own handling of what you send is governed by their
+[terms](https://typesafe.ai/legal/mca) and
+[data processing agreement](https://typesafe.ai/data-processing), not by this
+project.
+
+## Cost
+
+Input tokens only. State is billed once per request rather than once per
+question — verified against the API, and it is what makes the speculative
+fan-out cheap: asking a question you end up discarding costs almost nothing.
+
+Measured against `jev-1.13.0` at $42/Btok, a 29-entity home came to ~6.5k tokens
+per request, about **$0.00027**. Both the rate and a model's token accounting
+are TypeSafe's to change, and a later model will price differently — treat these
+as an order of magnitude, and check
+[your console](https://console.typesafe.ai/) and
+[typesafe.ai](https://typesafe.ai/) for what you will actually be billed.
+
 ## Install
 
 **Requires Home Assistant 2026.5.0 or newer.** Earlier releases do not report a
@@ -88,16 +136,47 @@ failed service call back to the conversation agent, so a command that no entity
 could carry out would be announced as if it had worked. The integration is
 tested against 2026.5.0 and the current release on every change.
 
+### Through HACS
+
+Not in the default HACS store yet, so add it as a custom repository: in HACS,
+**⋮ → Custom repositories**, paste this repository's URL, choose category
+**Integration**, then **Add**. It will then appear in HACS for install and for
+update notifications.
+
+### By hand
+
 Copy `custom_components/typesafe_conversation` into your Home Assistant `config`
-directory, restart, then **Settings → Devices & Services → Add Integration →
+directory.
+
+### Either way
+
+Restart Home Assistant, then **Settings → Devices & Services → Add Integration →
 TypeSafe Conversation**. You will need an API key from
-[console.typesafe.ai](https://console.typesafe.ai/).
+[console.typesafe.ai](https://console.typesafe.ai/). Finally, set it as the
+conversation agent under **Settings → Voice assistants**.
 
 The LLM step is optional. Without it the agent still handles every command and
 query; it just cannot split compound requests or answer general questions.
 Ollama and any OpenAI-compatible endpoint (OpenRouter, vLLM, …) are supported.
 
-Then set it as the conversation agent under **Settings → Voice assistants**.
+### Options
+
+Set when you add the integration, and changeable afterwards under
+**Settings → Devices & Services → TypeSafe Conversation → Configure**.
+
+| option | default | what it does |
+| --- | --- | --- |
+| `api_key` | — | Your TypeSafe API key. Required. |
+| `model` | `jev-latest` | Which System One model to use. Tracks the newest Jev unless you pin one. |
+| `always_confirm_risky` | **on** | Ask before unlocking a door, opening a garage or disarming an alarm, however sure the model is. **Turning this off lets confident requests through silently** — the model's judgement becomes the only gate. |
+| `bypass_local_intents` | off | Send every command here, including ones Home Assistant's own sentence matcher recognises. Off is recommended; see [below](#leave-prefer-handling-commands-locally-on). |
+| `inline_entity_descriptions` | off | Describe every entity inside each question rather than once in the shared state. Roughly doubles the tokens. Only worth it if the agent picks the wrong device. |
+| `llm_backend` | none | `ollama`, an OpenAI-compatible endpoint, or unset. Used only for compound requests and general questions. |
+| `llm_base_url` | `http://localhost:11434` (Ollama) | Where that backend lives. Point it at your own machine to keep the prose path local. |
+| `llm_model` | — | Model name on that backend. |
+| `llm_api_key` | — | If the backend needs one. Redacted in diagnostics. |
+| `llm_timeout` | `30` s | How long to wait for the LLM before giving up. Only the prose path is affected. |
+| `llm_referer`, `llm_title` | project defaults | Sent as `HTTP-Referer` and `X-Title`; OpenRouter uses them for attribution. |
 
 ### Leave "prefer handling commands locally" on
 
@@ -188,10 +267,15 @@ if you would rather wait.
 
 ```sh
 python3.14 -m venv .venv        # Home Assistant 2026.5+ requires Python 3.14
-.venv/bin/pip install "pytest-homeassistant-custom-component==0.13.348" syrupy
+.venv/bin/pip install "pytest-homeassistant-custom-component==0.13.348" syrupy ruff
 .venv/bin/pip install "hassil==3.8.0" "home-assistant-intents==2026.6.24"
 .venv/bin/python -m pytest
+.venv/bin/ruff check . && .venv/bin/ruff format --check .
 ```
+
+CI runs those three against both the oldest supported Home Assistant and the
+current one, plus Home Assistant's `hassfest` and the HACS validator. See
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 The harness version is a **test-environment** choice, not the supported range —
 see *Install* for that. Each release pins exactly one core version
@@ -250,9 +334,3 @@ two-option Choice at p=0.66 scores 0.31; a seven-option Choice at the same
 probability scores 0.60. The action gate therefore thresholds the chosen
 option's **probability**, not its confidence — thresholding confidence made
 every script command fall back on a script-heavy home.
-
-## Cost
-
-Input tokens only, at $42/Btok. A 29-entity home costs ~6.5k tokens per request,
-about **$0.00027**. State is billed once per request, not once per question —
-verified, which is what makes the fan-out cheap.
