@@ -1,0 +1,29 @@
+name: Feature request
+description: Something the agent should be able to do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: request
+    attributes:
+      label: What should it do?
+      description: Describe the behaviour, not the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: What would that let you do?
+      description: |
+        The concrete thing you are trying to accomplish. This matters more than
+        the feature itself — there may be a way to get there already, or a
+        better shape for the change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+      validations:
+        required: false
