@@ -54,6 +54,7 @@ class AgentSettings:
     always_confirm_risky: bool = DEFAULT_ALWAYS_CONFIRM_RISKY
     bypass_local_intents: bool = False
     execution_enabled: bool = True
+    local_fallback_enabled: bool = True
 
 
 class TypeSafeAgent:
@@ -281,12 +282,14 @@ class TypeSafeAgent:
                 # this intent from it. Give it the first try - it costs ~5ms.
                 if (
                     self.settings.execution_enabled
+                    and self.settings.local_fallback_enabled
                     and (
                         local := await conversation.async_handle_intents(
                             self.hass, user_input, chat_log
                         )
                     )
-                ) is not None:
+                    is not None
+                ):
                     return local
                 if plan.query_kind == "needs_prose":
                     return await self._answer_freeform(user_input, chat_log)
@@ -527,11 +530,21 @@ class TypeSafeAgent:
                 "Preview could not resolve this request. Nothing executed; "
                 "local command fallback is disabled in preview mode.",
             )
-        if (
-            local := await conversation.async_handle_intents(
-                self.hass, user_input, chat_log
+        if not self.settings.local_fallback_enabled and response is None:
+            return self._error(
+                user_input,
+                intent.IntentResponseErrorCode.FAILED_TO_HANDLE,
+                "Decision routing failed. Nothing executed; local fallback is disabled.",
             )
-        ) is not None:
+        if (
+            self.settings.local_fallback_enabled
+            and (
+                local := await conversation.async_handle_intents(
+                    self.hass, user_input, chat_log
+                )
+            )
+            is not None
+        ):
             LOGGER.debug("Fallback: handled locally by the sentence matcher")
             return local
 

@@ -36,6 +36,7 @@ typesafe_conversation:
   model: typesafe/jev-1.13
   openrouter_entry_id: REPLACE_WITH_EXISTING_OPEN_ROUTER_ENTRY_ID
   execution_enabled: false
+  local_fallback_enabled: false
   always_confirm_risky: true
   llm_backend: openai_compatible
   llm_base_url: https://openrouter.ai/api

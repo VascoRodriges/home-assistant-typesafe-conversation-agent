@@ -22,6 +22,7 @@ from .const import (
     CONF_LLM_MODEL,
     CONF_LLM_SPLIT_MODEL,
     CONF_LLM_TIMEOUT,
+    CONF_LOCAL_FALLBACK_ENABLED,
     CONF_MODEL,
     CONF_OPENROUTER_ENTRY_ID,
     CONF_PROVIDER,
@@ -41,6 +42,7 @@ YAML_SCHEMA = vol.Schema(
         vol.Optional(CONF_API_KEY): cv.string,
         vol.Optional(CONF_OPENROUTER_ENTRY_ID): cv.string,
         vol.Optional(CONF_EXECUTION_ENABLED, default=False): cv.boolean,
+        vol.Optional(CONF_LOCAL_FALLBACK_ENABLED, default=False): cv.boolean,
         vol.Optional(CONF_ALWAYS_CONFIRM_RISKY, default=True): cv.boolean,
         vol.Optional(CONF_BYPASS_LOCAL_INTENTS, default=False): cv.boolean,
         vol.Optional(CONF_INLINE_ENTITY_DESCRIPTIONS, default=False): cv.boolean,
@@ -60,6 +62,7 @@ def normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
     provider = data.setdefault(CONF_PROVIDER, PROVIDER_TYPESAFE)
     if provider not in (PROVIDER_TYPESAFE, PROVIDER_OPENROUTER):
         raise ValueError("Unknown decision provider")
+    data.setdefault(CONF_LOCAL_FALLBACK_ENABLED, provider == PROVIDER_TYPESAFE)
     data.setdefault(
         CONF_MODEL,
         DEFAULT_OPENROUTER_MODEL if provider == PROVIDER_OPENROUTER else DEFAULT_MODEL,

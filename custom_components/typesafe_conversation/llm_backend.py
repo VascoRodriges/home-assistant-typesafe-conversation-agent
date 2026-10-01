@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import re
 import time
 from abc import ABC, abstractmethod
@@ -164,7 +165,7 @@ class LLMBackend(ABC):
         except LLMBackendError as err:
             LOGGER.warning("Could not split a compound request (%s)", err)
             return []
-        _log_exchange("split", self.name, self._model, messages, raw, metrics)
+        _log_exchange("split", self.name, self._split_model, messages, raw, metrics)
 
         parts = _parse_string_array(raw)
         if not parts:
@@ -245,7 +246,7 @@ class OllamaBackend(LLMBackend):
         try:
             text = data["message"]["content"]
         except (KeyError, TypeError) as err:
-            raise LLMBackendError(f"Unexpected Ollama response: {data}") from err
+            raise LLMBackendError("Unexpected Ollama response") from err
         return text, _ollama_metrics(data, elapsed)
 
     async def async_warm_up(self) -> None:
@@ -323,6 +324,9 @@ class OpenAICompatBackend(LLMBackend):
         )
         elapsed = time.monotonic() - started
         try:
+            finish = data["choices"][0].get("finish_reason")
+            if finish is not None and finish != "stop":
+                raise LLMBackendError("Chat completion was incomplete")
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError) as err:
             raise LLMBackendError("Unexpected chat-completion response") from err
@@ -378,7 +382,12 @@ def _openai_metrics(data: dict[str, Any], elapsed: float) -> dict[str, Any]:
     usage = data.get("usage")
     if isinstance(usage, dict):
         cost = usage.get("cost")
-        if isinstance(cost, (int, float)) and not isinstance(cost, bool) and cost >= 0:
+        if (
+            isinstance(cost, (int, float))
+            and not isinstance(cost, bool)
+            and math.isfinite(cost)
+            and cost >= 0
+        ):
             out["cost_usd"] = cost
         for key, name in (
             ("prompt_tokens", "prompt_tokens"),

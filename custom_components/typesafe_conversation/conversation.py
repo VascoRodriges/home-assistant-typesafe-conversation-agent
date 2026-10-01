@@ -17,6 +17,7 @@ from .const import (
     CONF_BYPASS_LOCAL_INTENTS,
     CONF_EXECUTION_ENABLED,
     CONF_INLINE_ENTITY_DESCRIPTIONS,
+    CONF_LOCAL_FALLBACK_ENABLED,
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     DOMAIN,
 )
@@ -118,6 +119,9 @@ class TypeSafeConversationEntity(
                 ),
                 bypass_local_intents=bool(settings.get(CONF_BYPASS_LOCAL_INTENTS)),
                 execution_enabled=bool(settings.get(CONF_EXECUTION_ENABLED, True)),
+                local_fallback_enabled=bool(
+                    settings.get(CONF_LOCAL_FALLBACK_ENABLED, True)
+                ),
             ),
             traces=data.traces,
         )

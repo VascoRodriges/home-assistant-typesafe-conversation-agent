@@ -15,6 +15,7 @@ def test_yaml_defaults_to_preview_and_pinned_jev():
     assert data["provider"] == "openrouter"
     assert data["model"] == "typesafe/jev-1.13"
     assert data["execution_enabled"] is False
+    assert data["local_fallback_enabled"] is False
 
 
 def test_existing_direct_entries_keep_their_provider():
