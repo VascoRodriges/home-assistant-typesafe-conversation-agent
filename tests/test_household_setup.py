@@ -22,7 +22,9 @@ async def test_yaml_import_loads_capability_runtime_and_status(hass, aioclient_m
     scripts = synthetic_catalog(raw=True)
     target = Path(hass.config.path("synthetic-scripts.yaml"))
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(yaml.safe_dump({"script": scripts}), encoding="utf-8")
+    await hass.async_add_executor_job(
+        target.write_text, yaml.safe_dump({"script": scripts}), "utf-8"
+    )
     source = MockConfigEntry(domain="open_router", data={"api_key": "sk-synthetic"})
     source.add_to_hass(hass)
     aioclient_mock.get(OPENROUTER_KEY_URL, json={"data": {"limit_remaining": 1}})
@@ -66,7 +68,7 @@ async def test_yaml_import_loads_capability_runtime_and_status(hass, aioclient_m
     assert not status["execution_enabled"]
     assert hass.states.get("sensor.typesafe_conversation_budget") is not None
     assert hass.states.get("conversation.synthetic_capability_agent") is not None
-    assert all(call.method == "GET" for call in aioclient_mock.mock_calls)
+    assert aioclient_mock.call_count == 2  # Import and runtime key validation only.
     assert "api_key" not in entry.data
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert not hass.services.has_service(DOMAIN, "preview")

@@ -1,13 +1,40 @@
 # TypeSafe Conversation for Home Assistant
 
-## User-maintained OpenRouter fork
+## OpenRouter + YAML capability fork
 
-Development branch: `codex/openrouter-yaml`. See [fork status and YAML setup](docs/openrouter-fork.md)
-for implemented changes and the remaining production-migration gates. The upstream
-documentation below describes the original integration; it does not imply that
-household Music Assistant workflows or local budget limits have been migrated.
+Original integration by **Sofiane Ghadab (@the-sof)**:
+[upstream repository](https://github.com/the-sof/home-assistant-typesafe-conversation-agent).
+This public fork is maintained by **VascoRodriges**. The original MIT license and
+author attribution are preserved; this is not an official TypeSafe or HA release.
 
-[![tests](https://github.com/the-sof/home-assistant-typesafe-conversation-agent/actions/workflows/test.yml/badge.svg)](https://github.com/the-sof/home-assistant-typesafe-conversation-agent/actions/workflows/test.yml)
+The fork adds an optional YAML capability mode for an existing smart home:
+
+- One batch of pinned `typesafe/jev-1.13` decisions handles eligible simple
+  commands and sensor readings without a generative model.
+- Complex requests use one explicit planner plus a typed Jev review; no repeated
+  opaque veto/replanning loop. General answers and current-data search use
+  separate, locally selected model roles.
+- Typed script fields and local scope checks connect room lighting, Music
+  Assistant destinations, receiver workflows and deferred cleaning helpers.
+  Device logic stays in your YAML scripts, not a list of exact spoken phrases.
+- Persistent per-request/day/month budget reservations happen before paid calls;
+  no automatic model replacement or billed timeout retry.
+- Preview cannot actuate devices. Execution needs both the entry setting and a
+  local switch, and successful replies require script response confirmation.
+
+Benefits: fewer model calls for simple requests, flexible compound instructions,
+explicit scope and cost control, and one agent usable from text panels and Assist.
+Actual speed, cost and device compatibility depend on your catalog and providers;
+the upstream timing figures below are **not measurements of this fork**.
+
+[Setup, script contract and limitations](docs/openrouter-fork.md) ·
+[Русское описание](README.ru.md).
+The original native-intent mode remains available when `household` is omitted.
+Native mode does **not** use the optional household budget limiter.
+
+## Original upstream documentation — native-intent mode
+
+[![tests](https://github.com/VascoRodriges/home-assistant-typesafe-conversation-agent/actions/workflows/test.yml/badge.svg)](https://github.com/VascoRodriges/home-assistant-typesafe-conversation-agent/actions/workflows/test.yml)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![HACS: custom](https://img.shields.io/badge/HACS-custom-orange.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 

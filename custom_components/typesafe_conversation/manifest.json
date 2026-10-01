@@ -2,7 +2,7 @@
   "domain": "typesafe_conversation",
   "name": "TypeSafe Conversation",
   "after_dependencies": ["assist_pipeline"],
-  "codeowners": ["@the-sof"],
+  "codeowners": ["@VascoRodriges"],
   "config_flow": true,
   "dependencies": ["conversation", "homeassistant", "intent"],
   "documentation": "https://github.com/VascoRodriges/home-assistant-typesafe-conversation-agent",
@@ -10,5 +10,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/VascoRodriges/home-assistant-typesafe-conversation-agent/issues",
   "requirements": [],
-  "version": "0.1.1"
+  "version": "0.2.0"
 }

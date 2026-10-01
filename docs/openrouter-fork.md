@@ -1,85 +1,191 @@
-# OpenRouter fork: implementation status
+# OpenRouter fork — YAML capability mode
 
-This is a fork of `the-sof/home-assistant-typesafe-conversation-agent`, not a
-replacement conversation engine written from scratch. The original MIT license,
-pure decision router, entity exposure checks, HA intents and upstream tests remain.
+Original author: **Sofiane Ghadab (@the-sof)**. Fork maintainer: **VascoRodriges**.
+[Original MIT-licensed integration](https://github.com/the-sof/home-assistant-typesafe-conversation-agent).
+The native entity catalog/router, intent executor, conversation platform and tests
+are retained. The opt-in adapter reuses the upstream typed System One client and
+conversation platform to bridge existing YAML scripts.
 
-## Implemented
+## Routing and execution
 
-- OpenRouter's TypeSafe-compatible `POST /api/v1/systemone` transport, using
-  `typesafe/jev-1.13`. This is **not** chat completions or `jev-router`.
-- Authenticated, non-generative key validation through `GET /api/v1/key`.
-- One attempt per OpenRouter decision request; no duplicate billed retries,
-  router aliases, automatic model substitution or HTTP redirects.
-- YAML-managed entry; credentials can reference the existing HA `open_router`
-  integration and are resolved only in memory. No second persisted key copy.
-- Explicit language-model roles: `llm_split_model` splits compound commands;
-  `llm_model` answers general questions. Simple commands still use Jev only.
-- New entries start with device execution disabled. Preview does not execute
-  commands, cancel timers, use the local command fallback, or execute compound
-  subcommands. Decisions appear in downloadable integration diagnostics.
-- A compound request is fully resolved before any step executes. Invalid or
-  oversized split arrays are rejected, not truncated. Execution stops at the
-  first failed step and reports partial success; physical rollback is not claimed.
-- Relative brightness reads actual entity state. An off light starts from zero;
-  missing brightness no longer invents a 50% baseline. Relative room-wide changes
-  require a household helper and are not yet supported by this executor.
-- Provider error bodies are not included in exceptions. Jev-reported cost is
-  preserved in diagnostics; missing cost remains unknown, not zero.
+1. One `POST /api/v1/systemone` batch selects request route, domain, timing and
+   closed-set candidates. Only fields relevant to that route are read.
+2. Eligible single-target light, receiver, playback, literal music-search and
+   sensor requests compile directly into typed arguments. Ambiguity, mood
+   reformulation, exclusions, schedules and multi-step requests use the planner.
+3. One explicitly selected model generates a schema-constrained plan. Local
+   validation rejects unknown scripts/fields, out-of-range values, invented
+   volume/brightness numbers, protected-target conflicts and unsupported timing.
+4. One closed-set Jev review compares the whole complex plan with the whole
+   request. Rejection asks for clarification; it does not start a replanning loop.
+5. All model work and whole-chain service preflight finish before any side
+   effect. Each script must return `success: true`; a failed step stops the chain.
+   No retry or physical rollback is claimed.
 
-## Example YAML (synthetic, not a real home)
+General questions use `models.answer`, without device tools or catalog. Fresh
+external questions use `models.web` with one bounded OpenRouter Exa search.
+No confirmed search metadata/citations means no purported live facts.
+
+## Synthetic YAML example
+
+Place a package similar to this in your HA configuration. Replace ONLY the
+example IDs locally. Your script catalog is never part of this repository.
 
 ```yaml
 typesafe_conversation:
-  name: Home Decision Test
+  name: Home TypeSafe
   provider: openrouter
   model: typesafe/jev-1.13
   openrouter_entry_id: REPLACE_WITH_EXISTING_OPEN_ROUTER_ENTRY_ID
   execution_enabled: false
   local_fallback_enabled: false
-  always_confirm_risky: true
-  llm_backend: openai_compatible
-  llm_base_url: https://openrouter.ai/api
-  llm_split_model: openai/gpt-4o-mini
-  llm_model: openai/gpt-4o
-  llm_timeout: 30
+  household:
+    script_catalog: packages/assist/capabilities.yaml
+    execution_switch: input_boolean.assist_execute
+    status_sensor: sensor.typesafe_conversation_budget
+    models:
+      decision: typesafe/jev-1.13
+      planner: openai/gpt-4o-mini
+      answer: openai/gpt-4o
+      web: openai/gpt-4o-mini
+    prices:
+      typesafe/jev-1.13:
+        input_per_million: 0.042
+        output_per_million: 0
+      openai/gpt-4o-mini:
+        input_per_million: 0.15
+        output_per_million: 0.60
+      openai/gpt-4o:
+        input_per_million: 2.50
+        output_per_million: 10
+    budget:
+      request_usd: 0.035
+      daily_usd: 0.25
+      monthly_usd: 3
+    capabilities:
+      voice_llm_receiver_power: media
+    read_entities:
+      sensor.sample_temperature: Example room temperature
+    instructions: >-
+      Room lighting means MAIN lighting only unless the user names a secondary
+      fixture. Relative quieter/brighter uses the script's safe default step.
+      Leave unchanged means do not modify that fixture.
+
+input_boolean:
+  assist_execute:
+    name: Allow Assist device commands
+    initial: false
 ```
 
-Alternatively omit `openrouter_entry_id` and use `api_key: !secret openrouter_key`.
-Do not set both. The LLM reuses the decision key only when its base URL is the
-exact OpenRouter endpoint above; other endpoints require their own credentials.
+Price figures are example configured ceilings, **not automatic price discovery**.
+Check current provider pricing before using them. A missing role price blocks
+initialization. No router alias, model fallback or alternate role is selected
+behind your back. Planner/answer alternatives currently accepted by the adapter
+are `google/gemini-3.1-flash-lite` and `openai/gpt-5-mini`; configure their
+explicit ceilings before selection. Batch models are unsuitable for live Assist.
 
-Restart HA after changing YAML. Re-import updates the same entry identified by
-its name; keep that name stable. Subentry UI reconfiguration is blocked for a
-YAML-managed entry. Removing YAML does not remove the imported HA entry: explicitly
-remove the integration if retiring it.
+Restart HA after YAML changes. Re-import replaces the same entry identified by
+name; keep it stable. Imported entries cannot be reconfigured through subentry
+UI. Removing YAML alone does not retire the imported entry: disable/remove it.
 
-**For a test Assist pipeline, turn off “Prefer handling commands locally”.**
-HA's pipeline can execute a local sentence before it reaches any conversation
-agent. An agent's preview switch cannot guard a command that bypasses it entirely.
-Prefer direct `conversation.process` calls addressed to the test agent.
+## Script catalog contract
 
-## Migration gates — NOT completed
+The file contains a `script:` mapping. Only names explicitly listed in
+`capabilities` are callable, classified as `light`, `media` or `vacuum`.
+Fields use HA `select`, `number` or `text` selectors; unknown selector types
+fail closed. Optional fields are nullable during planning and omitted before
+calling scripts. Use script descriptions for semantics, aliases and limitations.
 
-This branch is not yet a drop-in replacement for an existing household cascade.
-Do not select it as the main assistant until these gates pass:
+A minimal synthetic catalog (adapt its device ID locally):
 
-1. Add a declarative YAML capability registry for typed script fields, room
-   primary-light defaults and explicit secondary-light targeting.
-2. Connect household Music Assistant preparation, receiver power and safe relative
-   volume. Generic native HA media intents alone are not proof these workflows work.
-3. Bring over persistent local daily/monthly/per-request budget gates without
-   resetting already-spent balances. Cost reporting is not a budget limiter.
-   Until then, enforce a spending cap on a dedicated OpenRouter key and avoid paid
-   live testing on an unrestricted shared key.
-4. Route live-data questions through an explicit search capability. Freeform
-   answers currently have no internet access and must not invent current weather.
-5. Add durable scheduled jobs and ordered vacuum-room completion handling;
-   do not interpret “in ten minutes” as permission to start immediately.
-6. Run synthetic Russian phrasing and compound-plan regression tests, then
-   no-actuation previews against the household catalog before switching the UI.
+```yaml
+script:
+  voice_llm_receiver_power:
+    description: Explicitly switch the example receiver on or off.
+    fields:
+      power_action:
+        required: true
+        selector:
+          select:
+            options: ["on", "off"]
+    sequence:
+      - action: "media_player.turn_{{ power_action }}"
+        target:
+          entity_id: media_player.sample_receiver
+      - variables:
+          result:
+            success: true
+            message: "Receiver power command accepted by HA."
+      - stop: "{{ result.message }}"
+        response_variable: result
+```
 
-The current household integration has not been changed or replaced by this branch.
-Do not commit real entity IDs, catalogs, keys or trace captures.
+The optimized household profile recognizes these conventional capability names:
+`voice_llm_room_lights`, `voice_llm_all_lights_off`,
+`voice_llm_play_music`, `voice_llm_music_control`,
+`voice_llm_receiver_volume`, `voice_llm_receiver_power`,
+`voice_llm_kids_tv_control`, `voice_llm_vacuum_rooms` and
+`voice_llm_vacuum_control`. Their field selectors remain the source of truth.
 
-Reference: [OpenRouter System One protocol](https://openrouter.ai/docs/guides/community/typesafe-sdk).
+For light scopes, a script's top-level sequence variables supply
+`lighting_targets` (`room:fixture` -> entity list), `room_names` and
+`fixture_names`. For music, use `players` (destination -> entity) and
+`player_names`. Duplicate aliases may point to the same entities; exclusions
+are checked by underlying IDs, not just by the alias string. Unknown profiles
+can use the bounded planner path; they do not get a guessed fast-path mapping.
+
+Music Assistant integration and playable providers must already be configured.
+Scripts perform receiver preparation, search/play and volume commands through
+HA/MA services; the model does not send raw DLNA/UPnP requests. Mood search is a
+search request, not a guarantee a provider has a matching playlist or track.
+
+The cleaning script persists room order, delay and repeats in HA helpers and
+returns immediately. The HA automation owns later execution. The adapter does
+not sleep for ten minutes or assume a model will remember a job. Ordered segment
+submission is **not proof of strict room-by-room completion on every vacuum**.
+Support depends on your vacuum integration; do not claim a guarantee without
+checking that integration. Delayed light/media actions are rejected rather than
+executed immediately.
+
+## Budget, preview and privacy
+
+Every capability-mode model call reserves a conservative cost ceiling in
+`.storage/typesafe_conversation.<entry_id>.budget` before sending. UTC daily
+and monthly windows survive restart. Missing usage/timeout retains the
+reservation; unexpected cost above it blocks further calls and actuation.
+This is a conservative local admission policy, not a guarantee against an
+upstream billing error. Do not edit or delete the ledger to clear a limit.
+
+When migrating the former local cascade, set `migrate_cascade_budget: true`
+and disable its config entry BEFORE enabling this integration. On first setup
+the adapter loads its `home_cascade.budget` balances; a missing previous ledger
+or an active previous writer blocks migration instead of resetting spend.
+
+`typesafe_conversation.preview` accepts `text` and optional `entry_id`.
+It is billed within the SAME budget but never actuates, regardless of switches.
+`status` is local/read-only. `reload_catalog` atomically refreshes the catalog;
+reload HA scripts separately after script implementation changes.
+
+Execution requires BOTH `execution_enabled: true` and the configured helper
+switch being on. Set that helper's `initial: false` for safety after restart.
+The status sensor carries models, budget, last path/calls and the full local
+reply for a text dashboard. Treat sensor attributes and traces as private.
+
+**Turn off “Prefer handling commands locally” in the Assist pipeline.** Local
+sentence handling can act before a conversation agent sees a request and is
+not covered by this adapter's preview/budget switches. A direct
+`conversation.process` call must name the intended agent.
+
+Keys are resolved from an existing `open_router` entry only in memory. HTTP
+error bodies are not logged. Public examples and tests are synthetic; never
+commit home catalogs, entity IDs, credentials or private trace captures.
+
+## Native mode
+
+Omit `household` to use the upstream native-intent router. Optional
+`llm_split_model` and `llm_model` then handle splitting and prose respectively.
+The household script adapter and its persistent budget are NOT active in native
+mode. Native preview still disables actuation; exposed-entity checks remain.
+
+References: [System One protocol](https://openrouter.ai/docs/guides/community/typesafe-sdk),
+[server-side web search](https://openrouter.ai/docs/guides/features/server-tools/web-search).
