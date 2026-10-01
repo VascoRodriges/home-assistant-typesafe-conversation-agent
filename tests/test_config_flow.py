@@ -5,14 +5,17 @@ from unittest.mock import patch
 import pytest
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.typesafe_conversation.const import DOMAIN, OPENROUTER_KEY_URL
 
 
 @pytest.fixture(autouse=True)
-def _custom_integrations(enable_custom_integrations):
-    return None
+async def _custom_integrations(hass, enable_custom_integrations):
+    # Conversation's startup hook reads the exposure store. Initialize that
+    # dependency before loading a flow on an already-running test instance.
+    assert await async_setup_component(hass, "homeassistant", {})
 
 
 async def test_yaml_import_resolves_but_does_not_persist_referenced_key(

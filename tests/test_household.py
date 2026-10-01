@@ -26,7 +26,7 @@ def field(options, required=True):
     return {"required": required, "selector": {"select": {"options": options}}}
 
 
-def synthetic_catalog():
+def synthetic_catalog(*, raw=False):
     scripts = {
         "voice_llm_room_lights": {
             "fields": {
@@ -92,6 +92,8 @@ def synthetic_catalog():
             ],
         },
     }
+    if raw:
+        return scripts
     return Catalog(
         scripts, {name: "light" if "lights" in name else "media" for name in scripts}
     )
