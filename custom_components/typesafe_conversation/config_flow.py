@@ -42,6 +42,7 @@ from .const import (
     CONF_LLM_SPLIT_MODEL,
     CONF_LLM_TIMEOUT,
     CONF_MODEL,
+    CONF_OPENROUTER_ENTRY_ID,
     CONF_PROVIDER,
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     DEFAULT_MODEL,
@@ -110,6 +111,7 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 data = normalize_settings(user_input)
+                data.setdefault(CONF_EXECUTION_ENABLED, False)
                 client = SystemOneClient(
                     async_get_clientsession(self.hass),
                     data[CONF_API_KEY],
@@ -178,6 +180,18 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             data = normalize_settings(YAML_SCHEMA(user_input))
             credentials = resolve_credentials(self.hass, data)
+        except ValueError, vol.Invalid:
+            return self.async_abort(reason="invalid_config")
+        await self.async_set_unique_id("yaml:" + data["name"])
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.unique_id == self.unique_id:
+                # YAML is the complete source of truth, not a merge patch.
+                # Removing a role/credential must actually remove the old key.
+                # Update locally before validation so disabling execution does
+                # not depend on a successful cloud connection.
+                self.hass.config_entries.async_update_entry(entry, data=data)
+                return self.async_abort(reason="already_configured")
+        try:
             client = SystemOneClient(
                 async_get_clientsession(self.hass),
                 credentials[CONF_API_KEY],
@@ -185,14 +199,11 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
                 provider=credentials[CONF_PROVIDER],
             )
             await client.async_validate()
-        except ValueError, vol.Invalid:
-            return self.async_abort(reason="invalid_config")
         except SystemOneAuthError:
             return self.async_abort(reason="invalid_auth")
         except SystemOneError:
             return self.async_abort(reason="cannot_connect")
-        await self.async_set_unique_id("yaml:" + data["name"])
-        self._abort_if_unique_id_configured(updates=data)
+        self._abort_if_unique_id_configured()
         return self.async_create_entry(
             title=data["name"],
             data=data,
@@ -208,6 +219,8 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @override
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
+        if entry_data.get(CONF_OPENROUTER_ENTRY_ID):
+            return self.async_abort(reason="reauth_source")
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(

@@ -38,7 +38,9 @@
       "reauth_successful": "Re-authentication was successful.",
       "invalid_config": "Invalid YAML settings or OpenRouter entry reference.",
       "invalid_auth": "The provider rejected the API key.",
-      "cannot_connect": "Could not validate the provider key."
+      "cannot_connect": "Could not validate the provider key.",
+      "already_configured": "The YAML-managed integration was updated.",
+      "reauth_source": "Re-authenticate the referenced OpenRouter integration; the key is not copied here."
     }
   },
   "config_subentries": {

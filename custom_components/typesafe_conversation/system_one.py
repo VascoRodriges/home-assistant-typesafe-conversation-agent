@@ -114,24 +114,52 @@ class SystemOneResponse:
         return answer.noul if isinstance(answer, NoulAnswer) else None
 
 
+def _number(value: Any, *, probability: bool = False) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or (probability and not 0 <= value <= 1)
+    ):
+        raise SystemOneError("Invalid numeric decision value")
+    return float(value)
+
+
 def _parse_answer(key: str, payload: dict[str, Any]) -> Answer:
+    """Reject malformed numbers before the pure router can consider acting."""
+    try:
+        return _parse_typed_answer(payload)
+    except (KeyError, TypeError, AttributeError) as err:
+        raise SystemOneError("Malformed typed decision answer") from err
+
+
+def _parse_typed_answer(payload: dict[str, Any]) -> Answer:
     kind = payload.get("type")
     if kind == "choice":
+        choice = payload["choice"]
+        probabilities = {
+            k: _number(v, probability=True) for k, v in payload["probabilities"].items()
+        }
+        if not isinstance(choice, str) or choice not in probabilities:
+            raise SystemOneError("Choice is not in its probability distribution")
         return ChoiceAnswer(
-            choice=payload["choice"],
-            probabilities={k: float(v) for k, v in payload["probabilities"].items()},
-            confidence=float(payload["confidence"]),
+            choice=choice,
+            probabilities=probabilities,
+            confidence=_number(payload["confidence"], probability=True),
         )
     if kind == "score":
         return ScoreAnswer(
-            score=float(payload["score"]),
+            score=_number(payload["score"]),
             legend=dict(payload.get("legend", {})),
-            probabilities={k: float(v) for k, v in payload["probabilities"].items()},
-            confidence=float(payload["confidence"]),
+            probabilities={
+                k: _number(v, probability=True)
+                for k, v in payload["probabilities"].items()
+            },
+            confidence=_number(payload["confidence"], probability=True),
         )
     if kind == "noul":
-        return NoulAnswer(noul=float(payload["noul"]))
-    raise SystemOneError(f"Unknown answer type {kind!r} for question {key!r}")
+        return NoulAnswer(noul=_number(payload["noul"], probability=True))
+    raise SystemOneError("Unknown decision answer type")
 
 
 class SystemOneClient:

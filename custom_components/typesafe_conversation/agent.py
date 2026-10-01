@@ -534,7 +534,8 @@ class TypeSafeAgent:
             return self._error(
                 user_input,
                 intent.IntentResponseErrorCode.FAILED_TO_HANDLE,
-                "Decision routing failed. Nothing executed; local fallback is disabled.",
+                "Decision routing failed. Nothing executed; "
+                "local fallback is disabled.",
             )
         if (
             self.settings.local_fallback_enabled

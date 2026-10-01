@@ -20,8 +20,10 @@ from custom_components.typesafe_conversation.system_one import (
     ChoiceAnswer,
     SystemOneAuthError,
     SystemOneClient,
+    SystemOneError,
     SystemOneRequestError,
     SystemOneUnavailableError,
+    _parse_answer,
 )
 
 OK = {
@@ -141,8 +143,6 @@ async def test_openrouter_never_repeats_a_billed_request(
 
 
 async def test_openrouter_rejects_a_different_model(openrouter_client, mocker):
-    from custom_components.typesafe_conversation.system_one import SystemOneError
-
     mocker.post(OPENROUTER_API_URL, json={**OK, "model": "other/model"})
     with pytest.raises(SystemOneError, match="Unexpected decision model"):
         await openrouter_client.async_ask({}, {})
@@ -155,6 +155,25 @@ async def test_openrouter_does_not_accept_router_alias(mocker):
             "sk-or-test",
             "typesafe/jev-router",
             provider="openrouter",
+        )
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), True, "0.9", -0.1, 1.1])
+def test_malformed_probabilities_are_not_decisions(value):
+    with pytest.raises(SystemOneError):
+        _parse_answer("risk", {"type": "noul", "noul": value})
+
+
+def test_a_choice_must_appear_in_its_distribution():
+    with pytest.raises(SystemOneError, match="distribution"):
+        _parse_answer(
+            "category",
+            {
+                "type": "choice",
+                "choice": "invented",
+                "probabilities": {"command": 1.0},
+                "confidence": 1.0,
+            },
         )
 
 
