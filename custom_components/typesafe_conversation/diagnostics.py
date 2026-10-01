@@ -19,11 +19,19 @@ from .const import (
     CONF_API_KEY,
     CONF_LLM_API_KEY,
     CONF_LLM_BASE_URL,
+    CONF_OPENROUTER_ENTRY_ID,
 )
 
 # The base URL is redacted too: for a self-hosted model it is usually a private
 # hostname, and diagnostics get pasted into public issue threads.
-REDACT = {CONF_API_KEY, CONF_LLM_API_KEY, CONF_LLM_BASE_URL, "api_key", "token"}
+REDACT = {
+    CONF_API_KEY,
+    CONF_LLM_API_KEY,
+    CONF_LLM_BASE_URL,
+    CONF_OPENROUTER_ENTRY_ID,
+    "api_key",
+    "token",
+}
 
 
 async def async_get_config_entry_diagnostics(

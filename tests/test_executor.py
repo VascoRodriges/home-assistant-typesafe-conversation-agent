@@ -20,7 +20,12 @@ from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.typesafe_conversation.actions import spec_for
 from custom_components.typesafe_conversation.entities import EntityCatalog
-from custom_components.typesafe_conversation.executor import async_execute, build_slots
+from custom_components.typesafe_conversation.executor import (
+    ExecutionError,
+    _add_value_slots,
+    async_execute,
+    build_slots,
+)
 from custom_components.typesafe_conversation.router import Plan, Route, Target
 
 
@@ -129,6 +134,46 @@ async def test_brightness_percentage_reaches_the_service(hass: HomeAssistant):
     )
     await async_execute(hass, plan, _input(hass), catalog)
     assert calls[0].data["brightness_pct"] == 30
+
+
+@pytest.mark.parametrize(
+    ("state", "brightness", "expected"), [("off", 200, 10), ("on", 51, 30)]
+)
+async def test_relative_brightness_uses_actual_state(
+    hass,
+    catalog_entities,
+    state,
+    brightness,
+    expected,
+):
+    entity = next(e for e in catalog_entities if e.domain == "light")
+    hass.states.async_set(entity.entity_id, state, {"brightness": brightness})
+    plan = Plan(
+        Route.COMMAND,
+        domain="light",
+        action="brighter",
+        spec=spec_for("light", "brighter"),
+        target=Target(entity=entity, domain="light"),
+        relative_step=10,
+    )
+    slots = {}
+    await _add_value_slots(hass, plan, slots)
+    assert slots["brightness"]["value"] == expected
+
+
+async def test_missing_brightness_does_not_invent_fifty_percent(hass, catalog_entities):
+    entity = next(e for e in catalog_entities if e.domain == "light")
+    hass.states.async_set(entity.entity_id, "on")
+    plan = Plan(
+        Route.COMMAND,
+        domain="light",
+        action="brighter",
+        spec=spec_for("light", "brighter"),
+        target=Target(entity=entity, domain="light"),
+        relative_step=10,
+    )
+    with pytest.raises(ExecutionError, match="unknown"):
+        await _add_value_slots(hass, plan, {})
 
 
 async def test_whole_house_always_carries_a_domain(hass: HomeAssistant):

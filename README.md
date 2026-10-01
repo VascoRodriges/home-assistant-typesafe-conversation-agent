@@ -1,5 +1,12 @@
 # TypeSafe Conversation for Home Assistant
 
+## User-maintained OpenRouter fork
+
+Development branch: `codex/openrouter-yaml`. See [fork status and YAML setup](docs/openrouter-fork.md)
+for implemented changes and the remaining production-migration gates. The upstream
+documentation below describes the original integration; it does not imply that
+household Music Assistant workflows or local budget limits have been migrated.
+
 [![tests](https://github.com/the-sof/home-assistant-typesafe-conversation-agent/actions/workflows/test.yml/badge.svg)](https://github.com/the-sof/home-assistant-typesafe-conversation-agent/actions/workflows/test.yml)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![HACS: custom](https://img.shields.io/badge/HACS-custom-orange.svg)](https://hacs.xyz/docs/faq/custom_repositories/)

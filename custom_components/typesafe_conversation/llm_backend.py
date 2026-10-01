@@ -69,6 +69,7 @@ You are the voice assistant for a Home Assistant smart home.
 
 - Reply in plain spoken text. No markdown, no bullet lists, no emoji, no \
 headings.
+- Reply in the language used by the user.
 - Be brief: one or two sentences, under 40 words, as if speaking aloud.
 - You cannot control any device in this mode. Never claim to have turned \
 anything on or off, and never promise to do something.
@@ -103,12 +104,20 @@ class LLMBackend(ABC):
         model: str,
         api_key: str | None = None,
         answer_timeout: float = ANSWER_TIMEOUT,
+        split_model: str | None = None,
     ) -> None:
         self._session = session
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._api_key = api_key
         self._answer_timeout = answer_timeout
+        self._split_model = split_model or model
+
+    def _request_model(self, messages: list[dict[str, str]]) -> str:
+        """Use explicitly configured roles, never ask a provider to pick one."""
+        if messages and messages[0].get("content") == SPLIT_SYSTEM_PROMPT:
+            return self._split_model
+        return self._model
 
     @abstractmethod
     async def _chat(
@@ -138,10 +147,8 @@ class LLMBackend(ABC):
     async def split_compound(self, utterance: str) -> list[str]:
         """Break a compound request into atomic commands.
 
-        Never raises. If the model is slow, unreachable, or returns something
-        that is not a JSON array, we fall back to treating the utterance as a
-        single command - which is exactly what would have happened without the
-        compound question. A failure here must not cost the user their command.
+        Never raises. A failed split returns no parts: the caller must clarify,
+        not execute a guessed subset of the original compound request.
         """
         messages = [
             {"role": "system", "content": SPLIT_SYSTEM_PROMPT},
@@ -156,20 +163,20 @@ class LLMBackend(ABC):
             )
         except LLMBackendError as err:
             LOGGER.warning("Could not split a compound request (%s)", err)
-            return [utterance]
+            return []
         _log_exchange("split", self.name, self._model, messages, raw, metrics)
 
         parts = _parse_string_array(raw)
         if not parts:
             LOGGER.warning("LLM split returned no usable array: %r", raw[:200])
-            return [utterance]
+            return []
         if len(parts) > MAX_SUB_COMMANDS:
             LOGGER.warning(
-                "LLM split produced %s parts; keeping the first %s",
+                "LLM split produced %s parts; rejecting above the limit of %s",
                 len(parts),
                 MAX_SUB_COMMANDS,
             )
-            parts = parts[:MAX_SUB_COMMANDS]
+            return []
         LOGGER.debug("Split %r into %s", utterance, parts)
         return parts
 
@@ -221,7 +228,7 @@ class OllamaBackend(LLMBackend):
         timeout: float,
     ) -> tuple[str, dict[str, Any]]:
         payload = {
-            "model": self._model,
+            "model": self._request_model(messages),
             "messages": messages,
             "stream": False,
             "keep_alive": OLLAMA_KEEP_ALIVE,
@@ -277,8 +284,9 @@ class OpenAICompatBackend(LLMBackend):
         referer: str | None = None,
         title: str | None = None,
         answer_timeout: float = ANSWER_TIMEOUT,
+        split_model: str | None = None,
     ) -> None:
-        super().__init__(session, base_url, model, api_key, answer_timeout)
+        super().__init__(session, base_url, model, api_key, answer_timeout, split_model)
         self._referer = referer
         self._title = title
 
@@ -291,7 +299,7 @@ class OpenAICompatBackend(LLMBackend):
         timeout: float,
     ) -> tuple[str, dict[str, Any]]:
         payload = {
-            "model": self._model,
+            "model": self._request_model(messages),
             "messages": messages,
             "stream": False,
             "temperature": temperature,
@@ -317,7 +325,7 @@ class OpenAICompatBackend(LLMBackend):
         try:
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError) as err:
-            raise LLMBackendError(f"Unexpected response: {data}") from err
+            raise LLMBackendError("Unexpected chat-completion response") from err
         return text, _openai_metrics(data, elapsed)
 
 
@@ -369,6 +377,9 @@ def _openai_metrics(data: dict[str, Any], elapsed: float) -> dict[str, Any]:
     out: dict[str, Any] = {"elapsed_s": elapsed}
     usage = data.get("usage")
     if isinstance(usage, dict):
+        cost = usage.get("cost")
+        if isinstance(cost, (int, float)) and not isinstance(cost, bool) and cost >= 0:
+            out["cost_usd"] = cost
         for key, name in (
             ("prompt_tokens", "prompt_tokens"),
             ("completion_tokens", "completion_tokens"),
@@ -442,17 +453,17 @@ async def _post_json(
                 json=payload,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=timeout),
+                allow_redirects=False,
             ) as response:
-                if response.status >= 400:
-                    body = await response.text()
-                    raise LLMBackendError(f"HTTP {response.status}: {body[:300]}")
+                if response.status >= 300:
+                    raise LLMBackendError(f"HTTP {response.status}")
                 return await response.json()
     except LLMBackendError:
         raise
     except TimeoutError as err:
         raise LLMBackendError(f"Timed out after {timeout}s") from err
     except aiohttp.ClientError as err:
-        raise LLMBackendError(str(err)) from err
+        raise LLMBackendError("Could not reach language model") from err
     except json.JSONDecodeError as err:
         raise LLMBackendError(f"Response was not JSON: {err}") from err
 
@@ -468,10 +479,10 @@ def _parse_string_array(raw: str) -> list[str]:
             parsed = json.loads(candidate)
         except json.JSONDecodeError, TypeError:
             continue
-        if isinstance(parsed, list):
-            items = [p.strip() for p in parsed if isinstance(p, str) and p.strip()]
-            if items:
-                return items
+        if isinstance(parsed, list) and parsed:
+            if all(isinstance(p, str) and p.strip() for p in parsed):
+                return [p.strip() for p in parsed]
+            return []
     return []
 
 
@@ -498,6 +509,7 @@ def create_backend(
         CONF_LLM_BASE_URL,
         CONF_LLM_MODEL,
         CONF_LLM_REFERER,
+        CONF_LLM_SPLIT_MODEL,
         CONF_LLM_TIMEOUT,
         CONF_LLM_TITLE,
         DEFAULT_LLM_REFERER,
@@ -514,7 +526,12 @@ def create_backend(
 
     if backend == BACKEND_OLLAMA:
         return OllamaBackend(
-            session, base_url, model, settings.get(CONF_LLM_API_KEY), timeout
+            session,
+            base_url,
+            model,
+            settings.get(CONF_LLM_API_KEY),
+            timeout,
+            settings.get(CONF_LLM_SPLIT_MODEL),
         )
     if backend == BACKEND_OPENAI_COMPAT:
         return OpenAICompatBackend(
@@ -525,6 +542,7 @@ def create_backend(
             settings.get(CONF_LLM_REFERER) or DEFAULT_LLM_REFERER,
             settings.get(CONF_LLM_TITLE) or DEFAULT_LLM_TITLE,
             timeout,
+            settings.get(CONF_LLM_SPLIT_MODEL),
         )
     LOGGER.error("Unknown LLM backend %r", backend)
     return None

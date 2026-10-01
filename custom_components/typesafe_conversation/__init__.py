@@ -13,29 +13,42 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
     CONF_API_KEY,
     CONF_MODEL,
+    CONF_PROVIDER,
     CONVERSATION_DOMAIN,
-    DEFAULT_MODEL,
     DOMAIN,
+    PROVIDER_TYPESAFE,
     TRACE_HISTORY,
     WARMUP_INTERVAL_SECONDS,
 )
 from .entities import EntityCatalog
 from .llm_backend import LLMBackend, create_backend
+from .settings import YAML_SCHEMA, resolve_credentials
 from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 
 PLATFORMS = [Platform.CONVERSATION]
-CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+CONFIG_SCHEMA = vol.Schema({vol.Optional(DOMAIN): YAML_SCHEMA}, extra=vol.ALLOW_EXTRA)
+
+
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+    """Import one YAML-managed entry without storing referenced credentials."""
+    if DOMAIN in config:
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": "import"}, data=dict(config[DOMAIN])
+            )
+        )
+    return True
 
 
 @dataclass
@@ -65,10 +78,15 @@ type TypeSafeConfigEntry = ConfigEntry[TypeSafeRuntimeData]
 async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> bool:
     """Set up TypeSafe Conversation from a config entry."""
     session = async_get_clientsession(hass)
+    try:
+        settings = resolve_credentials(hass, dict(entry.data))
+    except ValueError as err:
+        raise ConfigEntryNotReady(str(err)) from err
     client = SystemOneClient(
         session,
-        entry.data[CONF_API_KEY],
-        entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+        settings[CONF_API_KEY],
+        settings[CONF_MODEL],
+        provider=settings.get(CONF_PROVIDER, PROVIDER_TYPESAFE),
     )
 
     try:
@@ -87,12 +105,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> 
         catalog.async_start()
         store["catalog"] = catalog
 
-    llm = create_backend(session, {**entry.data})
+    llm = create_backend(session, settings)
     entry.runtime_data = TypeSafeRuntimeData(
         client=client,
         catalog=catalog,
         llm=llm,
-        model=entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+        model=settings[CONF_MODEL],
     )
 
     if llm is not None:

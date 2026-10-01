@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 
 import pytest
 from pytest_homeassistant_custom_component.test_util.aiohttp import (
@@ -10,7 +11,11 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import (
     mock_aiohttp_client,
 )
 
-from custom_components.typesafe_conversation.const import TYPESAFE_API_URL
+from custom_components.typesafe_conversation.const import (
+    OPENROUTER_API_URL,
+    OPENROUTER_KEY_URL,
+    TYPESAFE_API_URL,
+)
 from custom_components.typesafe_conversation.system_one import (
     ChoiceAnswer,
     SystemOneAuthError,
@@ -88,9 +93,69 @@ async def test_auth_failure_is_not_retried(client, mocker):
 async def test_validation_failure_is_not_retried(client, mocker):
     """A 422 is our bug, not a transient one - retrying just wastes time."""
     mocker.post(TYPESAFE_API_URL, status=422, text='{"detail":"questions.x.criteria"}')
-    with pytest.raises(SystemOneRequestError, match="criteria"):
+    with pytest.raises(SystemOneRequestError, match="HTTP 422") as failure:
         await client.async_ask({}, {})
     assert len(mocker.mock_calls) == 1
+    assert "criteria" not in str(failure.value)
+
+
+@pytest.fixture(name="openrouter_client")
+async def openrouter_client_fixture(mocker):
+    return SystemOneClient(
+        mocker.create_session(asyncio.get_running_loop()),
+        "sk-or-test",
+        "typesafe/jev-1.13",
+        provider="openrouter",
+    )
+
+
+async def test_openrouter_uses_systemone_not_chat(openrouter_client, mocker):
+    payload = deepcopy(OK)
+    payload["model"] = "typesafe/jev-1.13-20260917"
+    payload["usage"]["cost"] = 0.0003
+    mocker.post(OPENROUTER_API_URL, json=payload)
+    response = await openrouter_client.async_ask({}, {})
+    assert mocker.mock_calls[0][2]["model"] == "typesafe/jev-1.13"
+    assert response.cost_usd == 0.0003
+    assert response.input_tokens == 6482
+
+
+async def test_openrouter_auth_uses_authenticated_key_endpoint(
+    openrouter_client, mocker
+):
+    mocker.get(OPENROUTER_KEY_URL, json={"data": {"limit_remaining": 1.0}})
+    assert await openrouter_client.async_validate() == ["typesafe/jev-1.13"]
+    assert mocker.mock_calls[0][0] == "GET"
+
+
+@pytest.mark.parametrize("status", [401, 403, 429, 500, 529])
+async def test_openrouter_never_repeats_a_billed_request(
+    openrouter_client,
+    mocker,
+    status,
+):
+    mocker.post(OPENROUTER_API_URL, status=status)
+    with pytest.raises((SystemOneAuthError, SystemOneUnavailableError)):
+        await openrouter_client.async_ask({}, {})
+    assert len(mocker.mock_calls) == 1
+
+
+async def test_openrouter_rejects_a_different_model(openrouter_client, mocker):
+    from custom_components.typesafe_conversation.system_one import SystemOneError
+
+    mocker.post(OPENROUTER_API_URL, json={**OK, "model": "other/model"})
+    with pytest.raises(SystemOneError, match="Unexpected decision model"):
+        await openrouter_client.async_ask({}, {})
+
+
+async def test_openrouter_does_not_accept_router_alias(mocker):
+    with pytest.raises(ValueError, match="pinned"):
+        SystemOneClient(
+            mocker.create_session(asyncio.get_running_loop()),
+            "sk-or-test",
+            "typesafe/jev-router",
+            provider="openrouter",
+        )
 
 
 async def test_rate_limit_is_retried_then_gives_up(client, mocker):

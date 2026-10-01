@@ -9,10 +9,16 @@ still getting Home Assistant's own exposure check and response speech.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from homeassistant.components import conversation
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import (
+    STATE_OFF,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+    UnitOfTemperature,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent
 
@@ -151,7 +157,9 @@ async def _add_value_slots(
             slots[spec.value_slot] = _slot(max(-100, min(100, step)))
             return
         if spec.value_kind == "temperature":
-            current = _current_number(hass, plan, "temperature") or 20.0
+            current = _current_number(hass, plan, "temperature")
+            if current is None:
+                raise ExecutionError("Current temperature is unknown")
             # A percentage-point step makes no sense for temperature; treat the
             # magnitude as tenths of a degree per point (1pp -> 0.1 degree).
             slots[spec.value_slot] = _slot(round(current + step * 0.1, 1))
@@ -179,19 +187,36 @@ def _current_number(hass: HomeAssistant, plan: Plan, attribute: str) -> float | 
     if state is None:
         return None
     value = state.attributes.get(attribute)
-    return float(value) if isinstance(value, (int, float)) else None
+    if (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    ):
+        return float(value)
+    return None
 
 
 def _current_percent(hass: HomeAssistant, plan: Plan, kind: str | None) -> float:
     """Read the current value a relative change is relative *to*."""
+    if plan.target.entity is None:
+        # A room has no single brightness. Resolving per-entity changes belongs
+        # to a household helper, never to an invented 50% baseline for the room.
+        raise ExecutionError("Relative changes require an individual target")
+    state = hass.states.get(plan.target.entity.entity_id)
+    if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+        raise ExecutionError("Current state is unavailable")
     if plan.domain == "light":
+        if state.state == STATE_OFF:
+            if (plan.relative_step or 0) <= 0:
+                raise ExecutionError("The light is already off")
+            return 0.0
         raw = _current_number(hass, plan, "brightness")
-        return (raw / 255 * 100) if raw is not None else 50.0
-    if plan.domain == "fan":
-        return _current_number(hass, plan, "percentage") or 50.0
-    if plan.domain == "cover":
-        return _current_number(hass, plan, "current_position") or 50.0
-    return 50.0
+        if raw is not None:
+            return raw / 255 * 100
+    attribute = {"fan": "percentage", "cover": "current_position"}.get(plan.domain)
+    if attribute and (current := _current_number(hass, plan, attribute)) is not None:
+        return current
+    raise ExecutionError("Current value is unknown; use an absolute value")
 
 
 async def _execute_whole_house(

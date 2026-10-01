@@ -33,28 +33,38 @@ from .const import (
     CONF_ALWAYS_CONFIRM_RISKY,
     CONF_API_KEY,
     CONF_BYPASS_LOCAL_INTENTS,
+    CONF_EXECUTION_ENABLED,
     CONF_INLINE_ENTITY_DESCRIPTIONS,
     CONF_LLM_API_KEY,
     CONF_LLM_BACKEND,
     CONF_LLM_BASE_URL,
     CONF_LLM_MODEL,
+    CONF_LLM_SPLIT_MODEL,
     CONF_LLM_TIMEOUT,
     CONF_MODEL,
+    CONF_PROVIDER,
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     DEFAULT_MODEL,
     DEFAULT_OLLAMA_URL,
     DOMAIN,
     LOGGER,
+    PROVIDER_OPENROUTER,
+    PROVIDER_TYPESAFE,
     TYPESAFE_CONSOLE_URL,
 )
+from .settings import YAML_SCHEMA, normalize_settings, resolve_credentials
 from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 
 STEP_USER_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_PROVIDER, default=PROVIDER_OPENROUTER): SelectSelector(
+            SelectSelectorConfig(options=[PROVIDER_OPENROUTER, PROVIDER_TYPESAFE])
+        ),
         vol.Required(CONF_API_KEY): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
-        vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): TextSelector(),
+        vol.Optional(CONF_MODEL): TextSelector(),
+        vol.Optional(CONF_EXECUTION_ENABLED, default=False): BooleanSelector(),
     }
 )
 
@@ -73,6 +83,7 @@ STEP_LLM_SCHEMA = vol.Schema(
         ),
         vol.Optional(CONF_LLM_BASE_URL, default=DEFAULT_OLLAMA_URL): TextSelector(),
         vol.Optional(CONF_LLM_MODEL): TextSelector(),
+        vol.Optional(CONF_LLM_SPLIT_MODEL): TextSelector(),
         vol.Optional(CONF_LLM_API_KEY): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
@@ -97,13 +108,17 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            client = SystemOneClient(
-                async_get_clientsession(self.hass),
-                user_input[CONF_API_KEY],
-                user_input.get(CONF_MODEL, DEFAULT_MODEL),
-            )
             try:
+                data = normalize_settings(user_input)
+                client = SystemOneClient(
+                    async_get_clientsession(self.hass),
+                    data[CONF_API_KEY],
+                    data[CONF_MODEL],
+                    provider=data[CONF_PROVIDER],
+                )
                 await client.async_validate()
+            except ValueError:
+                errors["base"] = "invalid_config"
             except SystemOneAuthError:
                 errors["base"] = "invalid_auth"
             except SystemOneError:
@@ -112,7 +127,7 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
                 LOGGER.exception("Unexpected error validating the TypeSafe key")
                 errors["base"] = "unknown"
             else:
-                self._data = dict(user_input)
+                self._data = data
                 return await self.async_step_llm()
 
         return self.async_show_form(
@@ -136,6 +151,14 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
             self._data.update(
                 {k: v for k, v in user_input.items() if v not in (None, "")}
             )
+            try:
+                self._data = normalize_settings(self._data)
+            except ValueError:
+                return self.async_show_form(
+                    step_id="llm",
+                    data_schema=STEP_LLM_SCHEMA,
+                    errors={"base": "invalid_config"},
+                )
             return self.async_create_entry(
                 title="TypeSafe Conversation",
                 data=self._data,
@@ -149,6 +172,39 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
                 ],
             )
         return self.async_show_form(step_id="llm", data_schema=STEP_LLM_SCHEMA)
+
+    async def async_step_import(self, user_input: dict[str, Any]) -> ConfigFlowResult:
+        """YAML owns imported settings; re-import updates the same entry."""
+        try:
+            data = normalize_settings(YAML_SCHEMA(user_input))
+            credentials = resolve_credentials(self.hass, data)
+            client = SystemOneClient(
+                async_get_clientsession(self.hass),
+                credentials[CONF_API_KEY],
+                credentials[CONF_MODEL],
+                provider=credentials[CONF_PROVIDER],
+            )
+            await client.async_validate()
+        except ValueError, vol.Invalid:
+            return self.async_abort(reason="invalid_config")
+        except SystemOneAuthError:
+            return self.async_abort(reason="invalid_auth")
+        except SystemOneError:
+            return self.async_abort(reason="cannot_connect")
+        await self.async_set_unique_id("yaml:" + data["name"])
+        self._abort_if_unique_id_configured(updates=data)
+        return self.async_create_entry(
+            title=data["name"],
+            data=data,
+            subentries=[
+                {
+                    "subentry_type": "conversation",
+                    "title": data["name"],
+                    "data": {},
+                    "unique_id": None,
+                }
+            ],
+        )
 
     @override
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
@@ -164,6 +220,7 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
                 async_get_clientsession(self.hass),
                 user_input[CONF_API_KEY],
                 entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+                provider=entry.data.get(CONF_PROVIDER, PROVIDER_TYPESAFE),
             )
             try:
                 await client.async_validate()
@@ -216,6 +273,8 @@ class TypeSafeSubentryFlowHandler(ConfigSubentryFlow):
     async def async_step_set_options(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
+        if self._get_entry().source == "import":
+            return self.async_abort(reason="yaml_managed")
         if user_input is not None:
             title = user_input.pop("name", "TypeSafe Conversation")
             if self._is_new:
@@ -235,6 +294,13 @@ class TypeSafeSubentryFlowHandler(ConfigSubentryFlow):
                         else self._get_reconfigure_subentry().title
                     ),
                 ): TextSelector(),
+                vol.Optional(
+                    CONF_EXECUTION_ENABLED,
+                    default=current.get(
+                        CONF_EXECUTION_ENABLED,
+                        self._get_entry().data.get(CONF_EXECUTION_ENABLED, False),
+                    ),
+                ): BooleanSelector(),
                 vol.Optional(
                     CONF_ALWAYS_CONFIRM_RISKY,
                     default=current.get(

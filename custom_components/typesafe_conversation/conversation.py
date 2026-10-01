@@ -15,6 +15,7 @@ from .agent import AgentSettings, TypeSafeAgent
 from .const import (
     CONF_ALWAYS_CONFIRM_RISKY,
     CONF_BYPASS_LOCAL_INTENTS,
+    CONF_EXECUTION_ENABLED,
     CONF_INLINE_ENTITY_DESCRIPTIONS,
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     DOMAIN,
@@ -58,7 +59,11 @@ class TypeSafeConversationEntity(
             "model": entry.runtime_data.model,
             "entry_type": "service",
         }
-        settings = {**entry.data, **subentry.data}
+        settings = (
+            dict(entry.data)
+            if entry.source == "import"
+            else {**entry.data, **subentry.data}
+        )
         # Advertising CONTROL is what makes Home Assistant hand us the
         # utterances worth spending a Jev call on. With "prefer handling
         # commands locally" on, the sentence matcher keeps every command it
@@ -92,7 +97,11 @@ class TypeSafeConversationEntity(
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
         data = self.entry.runtime_data
-        settings = {**self.entry.data, **self.subentry.data}
+        settings = (
+            dict(self.entry.data)
+            if self.entry.source == "import"
+            else {**self.entry.data, **self.subentry.data}
+        )
         agent = TypeSafeAgent(
             self.hass,
             data.catalog,
@@ -108,6 +117,7 @@ class TypeSafeConversationEntity(
                     )
                 ),
                 bypass_local_intents=bool(settings.get(CONF_BYPASS_LOCAL_INTENTS)),
+                execution_enabled=bool(settings.get(CONF_EXECUTION_ENABLED, True)),
             ),
             traces=data.traces,
         )
