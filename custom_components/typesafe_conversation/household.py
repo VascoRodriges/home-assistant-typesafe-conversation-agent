@@ -119,6 +119,7 @@ class HouseholdRuntime:
         self.config = config
         self.entry_id = entry_id
         self.execution_enabled = execution_enabled
+        self.active = True
         self.lock = asyncio.Lock()
         self.store = Store(hass, 1, f"typesafe_conversation.{entry_id}.budget")
         self.last = {}
@@ -659,6 +660,7 @@ class HouseholdRuntime:
         results = []
         if (
             preview
+            or not self.active
             or not self.execution_enabled
             or not self.hass.states.is_state(self.config["execution_switch"], "on")
         ):
@@ -671,7 +673,9 @@ class HouseholdRuntime:
         ):
             raise PolicyError("Allowlisted script service is unavailable")
         for op in operations:
-            if not self.hass.states.is_state(self.config["execution_switch"], "on"):
+            if not self.active or not self.hass.states.is_state(
+                self.config["execution_switch"], "on"
+            ):
                 results.append(
                     {
                         "capability": op["capability"],
@@ -733,6 +737,12 @@ class HouseholdRuntime:
         self, text, *, context, history=None, preview=False, model_overrides=None
     ):
         async with self.lock:
+            if not self.active:
+                return {
+                    "speech": "Ассистент перезагружается. Повторите запрос через несколько секунд.",
+                    "error": True,
+                    "executed": False,
+                }
             request = {"cost_usd": 0.0, "calls": [], "preview": preview}
             self.last = request
             self.current_request = request

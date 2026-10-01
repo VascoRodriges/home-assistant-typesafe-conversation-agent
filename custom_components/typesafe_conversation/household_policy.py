@@ -365,6 +365,14 @@ class Budget:
                 for key, value in self.data[window].items()
             ):
                 raise PolicyError("Invalid persisted budget ledger")
+        if any(
+            isinstance(limits.get(key), bool)
+            or not isinstance(limits.get(key), (int, float))
+            or not math.isfinite(limits[key])
+            or limits[key] <= 0
+            for key in ("request_usd", "daily_usd", "monthly_usd")
+        ):
+            raise PolicyError("Invalid budget limits")
         self.now = now or (lambda: datetime.now(UTC))
 
     def windows(self):

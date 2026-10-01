@@ -25,6 +25,8 @@ from homeassistant.exceptions import (
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.reload import async_integration_yaml_config
+from homeassistant.helpers.service import async_register_admin_service
 
 from .const import (
     CONF_API_KEY,
@@ -176,7 +178,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> bool:
     """Unload a config entry."""
+    household = entry.runtime_data.household
+    if household:
+        # Stop queued turns and further actions, then drain the persisted budget
+        # writer before a replacement runtime loads the same ledger.
+        household.active = False
+        async with household.lock:
+            pass
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unloaded and household:
+        household.active = True
     if unloaded and entry.runtime_data.household:
         hass.states.async_remove(entry.runtime_data.household.config["status_sensor"])
         if not any(
@@ -185,7 +196,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) ->
             and other.runtime_data.household
             for other in hass.config_entries.async_entries(DOMAIN)
         ):
-            for service in ("preview", "status", "reload_catalog"):
+            for service in ("preview", "status", "reload_catalog", "reload_yaml"):
                 hass.services.async_remove(DOMAIN, service)
     if unloaded and not [
         other
@@ -236,6 +247,24 @@ def _register_household_services(hass: HomeAssistant) -> None:
                 "Unable to reload YAML capability catalog"
             ) from err
 
+    async def reload_yaml(_call):
+        config = await async_integration_yaml_config(
+            hass, DOMAIN, raise_on_failure=True
+        )
+        if DOMAIN not in config:
+            raise HomeAssistantError("TypeSafe YAML configuration is missing")
+        data = dict(config[DOMAIN])
+        if not any(
+            entry.unique_id == "yaml:" + data["name"]
+            for entry in hass.config_entries.async_entries(DOMAIN)
+        ):
+            raise HomeAssistantError("Reload must keep the existing YAML agent name")
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "import"}, data=data
+        )
+        if result.get("reason") != "already_configured":
+            raise HomeAssistantError("YAML import could not update the existing agent")
+
     selector = {vol.Optional("entry_id"): cv.string}
     hass.services.async_register(
         DOMAIN,
@@ -260,6 +289,7 @@ def _register_household_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, "reload_catalog", reload_catalog, schema=vol.Schema(selector)
     )
+    async_register_admin_service(hass, DOMAIN, "reload_yaml", reload_yaml)
 
 
 async def _async_update_listener(

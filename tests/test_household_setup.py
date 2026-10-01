@@ -1,6 +1,7 @@
 """Load the real adapter/platform through a synthetic YAML config entry."""
 
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import yaml
@@ -70,5 +71,21 @@ async def test_yaml_import_loads_capability_runtime_and_status(hass, aioclient_m
     assert hass.states.get("conversation.synthetic_capability_agent") is not None
     assert aioclient_mock.call_count == 2  # Import and runtime key validation only.
     assert "api_key" not in entry.data
+    old_runtime = entry.runtime_data.household
+    old_runtime.budget.reserve(0.002, 0)
+    await old_runtime.store.async_save(old_runtime.budget.data)
+    changed = {**entry.data, "execution_enabled": True}
+    with patch(
+        "custom_components.typesafe_conversation.async_integration_yaml_config",
+        new=AsyncMock(return_value={DOMAIN: changed}),
+    ):
+        await hass.services.async_call(DOMAIN, "reload_yaml", {}, blocking=True)
+        await hass.async_block_till_done()
+    assert not old_runtime.active
+    assert entry.runtime_data.household is not old_runtime
+    assert entry.runtime_data.household.execution_enabled
+    assert entry.runtime_data.household.budget.status()["month_usd"] == 0.002
+    assert hass.services.has_service(DOMAIN, "reload_yaml")
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert not hass.services.has_service(DOMAIN, "preview")
+    assert not hass.services.has_service(DOMAIN, "reload_yaml")

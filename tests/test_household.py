@@ -235,6 +235,19 @@ async def test_preview_keeps_panel_dialogue(runtime):
     assert (runtime.last_text, runtime.last_reply) == ("question", "answer")
 
 
+@pytest.mark.asyncio
+async def test_retired_runtime_cannot_bill_act_or_publish(runtime):
+    runtime.active = False
+    result = await runtime.process("выключи ресивер", context=None)
+    assert result["error"] and not result["executed"]
+    runtime.classify.assert_not_awaited()
+    runtime.hass.services.async_call.assert_not_awaited()
+    runtime.hass.states.async_set.assert_not_called()
+    assert await runtime.execute(
+        runtime.plan.return_value["operations"], None, False
+    ) == ([], False)
+
+
 def test_protected_light_uses_underlying_entities():
     catalog = synthetic_catalog()
     op = operation(
@@ -385,6 +398,12 @@ def test_unrequested_nondefault_step_is_rejected(runtime):
 def test_unknown_cost_keeps_reservation():
     budget = Budget({"request_usd": 0.035, "daily_usd": 0.25, "monthly_usd": 3})
     assert budget.settle(budget.reserve(0.01, 0), None) == 0.01
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), 0, -1, True])
+def test_invalid_limits_fail_closed(value):
+    with pytest.raises(PolicyError):
+        Budget({"request_usd": value, "daily_usd": 0.25, "monthly_usd": 3})
 
 
 def test_review_selects_specific_fields_not_global_confidence(runtime):

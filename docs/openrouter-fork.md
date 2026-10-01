@@ -16,8 +16,10 @@ conversation platform to bridge existing YAML scripts.
 3. One explicitly selected model generates a schema-constrained plan. Local
    validation rejects unknown scripts/fields, out-of-range values, invented
    volume/brightness numbers, protected-target conflicts and unsupported timing.
-4. One closed-set Jev review compares the whole complex plan with the whole
-   request. Rejection asks for clarification; it does not start a replanning loop.
+4. One Jev batch selects typed alternatives for the target, action, literal
+   values and room order, plus whole-request coverage. It compares the selected
+   field probabilities and margins rather than relying on one opaque global
+   confidence. Rejection asks for clarification; there is no replanning loop.
 5. All model work and whole-chain service preflight finish before any side
    effect. Each script must return `success: true`; a failed step stops the chain.
    No retry or physical rollback is claimed.
@@ -171,6 +173,10 @@ An optional `candidate_model` compares an explicitly priced candidate planner
 ONLY in preview; it cannot change the executing model or decision/answer roles.
 `status` is local/read-only. `reload_catalog` atomically refreshes the catalog;
 reload HA scripts separately after script implementation changes.
+`reload_yaml` is admin-only: it imports the existing YAML agent's merged
+package settings without restarting HA. Keep its `name` unchanged. The old
+runtime stops accepting turns and drains its budget writer before replacement;
+persisted spend is retained. This does not reload code or HA scripts.
 
 Execution requires BOTH `execution_enabled: true` and the configured helper
 switch being on. Set that helper's `initial: false` for safety after restart.

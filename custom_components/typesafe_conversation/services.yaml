@@ -31,3 +31,6 @@ reload_catalog:
     entry_id:
       selector:
         text:
+reload_yaml:
+  name: Reload YAML agent settings
+  description: Admin-only reload of the existing YAML agent without restarting HA. Keeps the agent name and budget ledger; drains in-flight processing before replacement.
