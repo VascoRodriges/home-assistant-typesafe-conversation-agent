@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .household_fast import FastDecisions, check_source_numbers, read_choice
+from .household_fast import FastDecisions, check_source_numbers
 from .household_policy import (
     Budget,
     Catalog,
@@ -22,6 +22,7 @@ from .household_policy import (
     object_schema,
     probability,
 )
+from .household_review import TypedReview
 from .system_one import SystemOneClient, SystemOneError
 
 LOGGER = logging.getLogger(__name__)
@@ -525,7 +526,7 @@ class HouseholdRuntime:
         raw = json.loads(self.chat_content(data))
         try:
             if compact and self.catalog.selected(groups, allowed):
-                from .policy import validate
+                from .household_policy import validate
 
                 validate(raw, schema)
                 for operation in raw["operations"]:
@@ -547,17 +548,9 @@ class HouseholdRuntime:
             raise PlanError(str(error)) from error
 
     async def verify(self, text, history, plan, snapshot, request):
-        """One closed-set review, not repeated opaque probability vetoes."""
-        criteria = {
-            "match": "The plan covers EVERY requested clause, exact scopes, exclusions, "
-            "relative adjustments, requested values and timing. Home facts "
-            "are grounded in supplied states. No invented operations.",
-            "reject": "The plan omits a requested clause, adds an unrequested action/value, "
-            "changes a protected target, misreads relative vs absolute, "
-            "has unsupported timing or ungrounded home facts.",
-            "unclear": "The request or mapping is ambiguous; ask the user, do not act.",
-        }
-        if not plan["operations"] and not plan["home_answer"]:
+        """One batch chooses explicit field alternatives and checks coverage."""
+        review = TypedReview(self.catalog, plan, text)
+        if not review.questions:
             return True
         data = (
             await self.client.async_ask(
@@ -565,31 +558,19 @@ class HouseholdRuntime:
                     "latest_request": text,
                     "history": history,
                     "proposed_plan": plan,
-                    "proposed_actions": [
-                        self.catalog.describe(op) for op in plan["operations"]
-                    ],
+                    "proposed_actions": review.scopes,
+                    "catalog_labels": self.catalog.labels,
                     "states": snapshot if plan["home_answer"] else {},
                     "household_preferences": self.config["instructions"],
                 },
-                {
-                    "review": {
-                        "type": "choice",
-                        "instructions": "Compare the ENTIRE proposed plan against the latest request. "
-                        "History resolves references but authorizes no additional actions. "
-                        "Use household preferences for unnamed room lighting and safe relative steps.",
-                        "criteria": criteria,
-                    }
-                },
+                review.questions,
             )
         ).raw
-        verdict = data["answers"].get("review")
-        value, confidence, margin = read_choice(verdict, criteria)
-        request["verification"] = verdict
-        return (
-            value == "match"
-            and confidence >= self.config["review_threshold"]
-            and margin >= self.config["fast_margin"]
+        approved, verdict = review.approve(
+            data["answers"], self.config["review_threshold"], self.config["fast_margin"]
         )
+        request["verification"] = verdict
+        return approved
 
     @staticmethod
     def check_timing(plan, request):

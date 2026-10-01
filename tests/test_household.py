@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -20,6 +21,7 @@ from custom_components.typesafe_conversation.household_policy import (
     Catalog,
     PolicyError,
 )
+from custom_components.typesafe_conversation.household_review import TypedReview
 
 
 def field(options, required=True):
@@ -383,6 +385,56 @@ def test_unrequested_nondefault_step_is_rejected(runtime):
 def test_unknown_cost_keeps_reservation():
     budget = Budget({"request_usd": 0.035, "daily_usd": 0.25, "monthly_usd": 3})
     assert budget.settle(budget.reserve(0.01, 0), None) == 0.01
+
+
+def test_review_selects_specific_fields_not_global_confidence(runtime):
+    review = TypedReview(runtime.catalog, runtime.plan.return_value, "выключи ресивер")
+    answers = {}
+    for name, expected in review.expected.items():
+        criteria = review.questions[name]["criteria"]
+        answers[name] = {
+            "type": "choice",
+            "choice": expected,
+            "confidence": 0.4,
+            "probabilities": {
+                key: 0.98 if key == expected else 0.02 / (len(criteria) - 1)
+                for key in criteria
+            },
+        }
+    approved, _verdict = review.approve(answers, 0.8, 0.15)
+    assert approved
+    answers["operation_0_power_action"]["choice"] = "on"
+    assert not review.approve(answers, 0.8, 0.15)[0]
+
+
+@pytest.mark.asyncio
+async def test_compact_candidate_plan_uses_same_local_validator(runtime):
+    raw = plan(
+        {
+            "capability": "voice_llm_receiver_power",
+            "arguments_json": '{"power_action":"off"}',
+        }
+    )
+    runtime.api = AsyncMock(
+        return_value={
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {"content": json.dumps(raw)},
+                }
+            ]
+        }
+    )
+    request = {
+        "model_overrides": {"planner": "google/gemini-3.1-flash-lite"},
+        "timing": {"choice": "now"},
+    }
+    result = await HouseholdRuntime.plan(
+        runtime, "выключи ресивер", [], {"media"}, {}, request
+    )
+    assert result["operations"] == [
+        {"capability": "voice_llm_receiver_power", "arguments": {"power_action": "off"}}
+    ]
 
 
 def test_overspend_blocks_execution_budget():
