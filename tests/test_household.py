@@ -356,6 +356,30 @@ def test_corrupt_ledger_cannot_reset_budget(data):
         Budget({}, data)
 
 
+def test_unrequested_yaml_step_default_is_omitted(runtime):
+    runtime.catalog.defaults["voice_llm_receiver_volume"]["step_percent"] = 5
+    result = plan(
+        {
+            "capability": "voice_llm_receiver_volume",
+            "arguments": {"volume_action": "decrease", "step_percent": 5},
+        }
+    )
+    check_source_numbers(result, "немного тише на ресивере", runtime.catalog)
+    assert result["operations"][0]["arguments"] == {"volume_action": "decrease"}
+
+
+def test_unrequested_nondefault_step_is_rejected(runtime):
+    runtime.catalog.defaults["voice_llm_receiver_volume"]["step_percent"] = 5
+    result = plan(
+        {
+            "capability": "voice_llm_receiver_volume",
+            "arguments": {"volume_action": "decrease", "step_percent": 15},
+        }
+    )
+    with pytest.raises(PolicyError):
+        check_source_numbers(result, "немного тише на ресивере", runtime.catalog)
+
+
 def test_unknown_cost_keeps_reservation():
     budget = Budget({"request_usd": 0.035, "daily_usd": 0.25, "monthly_usd": 3})
     assert budget.settle(budget.reserve(0.01, 0), None) == 0.01

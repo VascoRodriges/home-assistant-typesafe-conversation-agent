@@ -78,6 +78,11 @@ Room lighting defaults to its MAIN fixture, not every light, unless explicitly r
 Relative brightness/volume stays relative. Omit unrequested absolute values and steps.
 Optional fields not requested are null. Default safe steps belong in the script.
 Never invent preparatory power, volume, cancellation or status actions.
+voice_llm_play_music performs receiver preparation internally. Do NOT add
+voice_llm_receiver_power merely because music is requested on a receiver.
+voice_llm_all_lights_off is ONLY for whole-house shutdown with NO exceptions.
+For one room/fixture use voice_llm_room_lights, with light_action off.
+Preserve entries are constraints, NOT additional operations.
 For music, preserve the requested title/artist/mood and destination in query arguments.
 For ordered room cleaning, preserve room order in one rooms list.
 Deferred execution is supported only by the documented cleaning capability.
@@ -327,6 +332,11 @@ class HouseholdRuntime:
         data = (await self.client.async_ask(state, questions)).raw
         self.fast_answers = data["answers"]
         self.fast_compiler = fast
+        request["typed_candidates"] = {
+            key: {"choice": value["choice"], "confidence": value["confidence"]}
+            for key, value in data["answers"].items()
+            if fast and key in fast.questions and value.get("type") == "choice"
+        }
         answers = data["answers"]
         route = answers["route"]
         if route.get("type") != "choice" or route.get("choice") not in ROUTES:
@@ -499,6 +509,9 @@ class HouseholdRuntime:
                                 "execution_timing": request.get("timing"),
                                 "review_feedback": feedback,
                                 "catalog": self.catalog.selected(groups, allowed),
+                                "catalog_labels": self.catalog.labels,
+                                "optional_defaults": self.catalog.defaults,
+                                "typed_candidates": request.get("typed_candidates", {}),
                                 "available_lights": self.catalog.lights,
                                 "states": snapshot,
                             },
@@ -791,7 +804,7 @@ class HouseholdRuntime:
                     else:
                         request["path"] = "jev_planner_review"
                         plan = await self.plan(text, history, groups, snapshot, request)
-                        check_source_numbers(plan, text)
+                        check_source_numbers(plan, text, self.catalog)
                         self.check_timing(plan, request)
                         approved = bool(plan["clarification"]) or await self.verify(
                             text, history, plan, snapshot, request

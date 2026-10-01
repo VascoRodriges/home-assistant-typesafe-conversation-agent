@@ -37,7 +37,7 @@ from .const import (
     WARMUP_INTERVAL_SECONDS,
 )
 from .entities import EntityCatalog
-from .household import HouseholdRuntime
+from .household import CANDIDATES, HouseholdRuntime
 from .household_policy import PolicyError
 from .llm_backend import LLMBackend, create_backend
 from .settings import YAML_SCHEMA, resolve_credentials
@@ -217,8 +217,12 @@ def _register_household_services(hass: HomeAssistant) -> None:
         return entries[0].runtime_data.household
 
     async def preview(call):
+        candidate = call.data.get("candidate_model")
         return await runtime(call).process(
-            call.data["text"], context=call.context, preview=True
+            call.data["text"],
+            context=call.context,
+            preview=True,
+            model_overrides={"planner": candidate} if candidate else None,
         )
 
     async def status(call):
@@ -241,6 +245,7 @@ def _register_household_services(hass: HomeAssistant) -> None:
             {
                 **selector,
                 vol.Required("text"): vol.All(cv.string, vol.Length(min=1, max=1200)),
+                vol.Optional("candidate_model"): vol.In(CANDIDATES),
             }
         ),
         supports_response=SupportsResponse.ONLY,

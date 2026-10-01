@@ -387,7 +387,7 @@ class FastDecisions:
             return None, str(error)
 
 
-def check_source_numbers(plan, text):
+def check_source_numbers(plan, text, catalog=None):
     """Absolute values/explicit steps must exist in THIS request, not a model default."""
     values = {candidate["value"] for candidate in number_candidates(text).values()}
     fields = (
@@ -401,6 +401,16 @@ def check_source_numbers(plan, text):
         for field in fields:
             value = op["arguments"].get(field)
             if value is not None and value not in values:
+                # A planner may spell out an optional YAML default. Removing it
+                # is equivalent, and avoids an invented explicit adjustment.
+                defaults = catalog.defaults.get(op["capability"], {}) if catalog else {}
+                if field in (
+                    "step_percent",
+                    "brightness_step_percent",
+                    "repeats",
+                ) and value == defaults.get(field):
+                    op["arguments"].pop(field)
+                    continue
                 raise PlanError(
                     f"Unrequested numeric field: {field}. Omit it or use the explicitly requested literal value."
                 )

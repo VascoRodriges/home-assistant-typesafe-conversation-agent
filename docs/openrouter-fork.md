@@ -95,6 +95,10 @@ The file contains a `script:` mapping. Only names explicitly listed in
 Fields use HA `select`, `number` or `text` selectors; unknown selector types
 fail closed. Optional fields are nullable during planning and omitted before
 calling scripts. Use script descriptions for semantics, aliases and limitations.
+Declare optional safe numeric defaults using each field's `default`. An
+unrequested relative step/repeat equal to that local default is omitted before
+execution; any other invented value is rejected. Absolute volume/brightness
+never gets this exception.
 
 A minimal synthetic catalog (adapt its device ID locally):
 
@@ -163,6 +167,8 @@ or an active previous writer blocks migration instead of resetting spend.
 
 `typesafe_conversation.preview` accepts `text` and optional `entry_id`.
 It is billed within the SAME budget but never actuates, regardless of switches.
+An optional `candidate_model` compares an explicitly priced candidate planner
+ONLY in preview; it cannot change the executing model or decision/answer roles.
 `status` is local/read-only. `reload_catalog` atomically refreshes the catalog;
 reload HA scripts separately after script implementation changes.
 

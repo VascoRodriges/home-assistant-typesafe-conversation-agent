@@ -109,8 +109,14 @@ class Catalog:
         self.lights = {}
         self.players = {}
         self.labels = {}
+        self.defaults = {}
         for name, group in allowlist.items():
             script = scripts[name]
+            self.defaults[name] = {
+                key: field["default"]
+                for key, field in script.get("fields", {}).items()
+                if not field.get("required") and "default" in field
+            }
             self.tools[name] = {
                 "group": group,
                 "description": script.get("description", ""),
