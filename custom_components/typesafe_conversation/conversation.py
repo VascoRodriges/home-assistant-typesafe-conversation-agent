@@ -8,6 +8,7 @@ from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import intent
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import TypeSafeConfigEntry
@@ -98,6 +99,30 @@ class TypeSafeConversationEntity(
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
         data = self.entry.runtime_data
+        if data.household is not None:
+            history = [
+                {"role": item.role, "content": item.content[:500]}
+                for item in chat_log.content[:-1][-6:]
+                if item.role in ("user", "assistant") and isinstance(item.content, str)
+            ]
+            result = await data.household.process(
+                user_input.text, context=user_input.context, history=history
+            )
+            response = intent.IntentResponse(language=user_input.language)
+            if result.get("error"):
+                response.async_set_error(
+                    intent.IntentResponseErrorCode.UNKNOWN, result["speech"]
+                )
+            else:
+                response.async_set_speech(result["speech"])
+            chat_log.async_add_assistant_content_without_tools(
+                conversation.AssistantContent(
+                    agent_id=user_input.agent_id, content=result["speech"]
+                )
+            )
+            return conversation.ConversationResult(
+                response=response, conversation_id=chat_log.conversation_id
+            )
         settings = (
             dict(self.entry.data)
             if self.entry.source == "import"

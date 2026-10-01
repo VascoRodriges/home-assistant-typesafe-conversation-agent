@@ -31,6 +31,7 @@ REDACT = {
     CONF_OPENROUTER_ENTRY_ID,
     "api_key",
     "token",
+    "household",
 }
 
 
@@ -72,4 +73,16 @@ async def async_get_config_entry_diagnostics(
             data.questions_cache[0] if data.questions_cache else None
         ),
         "recent_requests": list(data.traces),
+        "household": (
+            {
+                "models": data.household.config["models"],
+                "budget": data.household.budget.status(),
+                "execution_enabled": data.household.status()["execution_enabled"],
+                "capability_count": len(data.household.catalog.tools),
+                "last_path": data.household.last.get("path"),
+                "last_call_count": len(data.household.last.get("calls", [])),
+            }
+            if data.household
+            else None
+        ),
     }

@@ -32,6 +32,81 @@ from .const import (
     PROVIDER_TYPESAFE,
 )
 
+PRICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("input_per_million"): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=10)
+        ),
+        vol.Required("output_per_million"): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=30)
+        ),
+    }
+)
+HOUSEHOLD_SCHEMA = vol.Schema(
+    {
+        vol.Required("script_catalog"): cv.string,
+        vol.Required("execution_switch"): cv.entity_id,
+        vol.Optional(
+            "status_sensor", default="sensor.typesafe_conversation_budget"
+        ): cv.entity_id,
+        vol.Required("models"): vol.Schema(
+            {
+                vol.Required("decision"): vol.In([DEFAULT_OPENROUTER_MODEL]),
+                vol.Required("planner"): vol.In(
+                    [
+                        "openai/gpt-4o-mini",
+                        "google/gemini-3.1-flash-lite",
+                        "openai/gpt-5-mini",
+                    ]
+                ),
+                vol.Required("answer"): vol.In(
+                    [
+                        "openai/gpt-4o",
+                        "openai/gpt-4o-mini",
+                        "google/gemini-3.1-flash-lite",
+                        "openai/gpt-5-mini",
+                    ]
+                ),
+                vol.Required("web"): vol.In(["openai/gpt-4o-mini"]),
+            }
+        ),
+        vol.Required("prices"): {cv.string: PRICE_SCHEMA},
+        vol.Required("budget"): vol.Schema(
+            {
+                vol.Required("request_usd"): vol.All(
+                    vol.Coerce(float), vol.Range(min=0.001, max=1)
+                ),
+                vol.Required("daily_usd"): vol.All(
+                    vol.Coerce(float), vol.Range(min=0.001, max=10)
+                ),
+                vol.Required("monthly_usd"): vol.All(
+                    vol.Coerce(float), vol.Range(min=0.001, max=100)
+                ),
+            }
+        ),
+        vol.Required("capabilities"): {cv.slug: vol.In(["light", "media", "vacuum"])},
+        vol.Optional("read_entities", default={}): {cv.entity_id: cv.string},
+        vol.Optional("extra_context_entities", default={}): {
+            vol.In(["light", "media", "vacuum"]): [cv.entity_id]
+        },
+        vol.Optional("review_threshold", default=0.8): vol.All(
+            vol.Coerce(float), vol.Range(min=0.8, max=1)
+        ),
+        vol.Optional("fast_control_threshold", default=0.90): vol.All(
+            vol.Coerce(float), vol.Range(min=0.8, max=1)
+        ),
+        vol.Optional("fast_read_threshold", default=0.85): vol.All(
+            vol.Coerce(float), vol.Range(min=0.75, max=1)
+        ),
+        vol.Optional("fast_margin", default=0.15): vol.All(
+            vol.Coerce(float), vol.Range(min=0.1, max=1)
+        ),
+        vol.Optional("web_enabled", default=True): cv.boolean,
+        vol.Optional("instructions", default=""): cv.string,
+        vol.Optional("migrate_cascade_budget", default=False): cv.boolean,
+    }
+)
+
 YAML_SCHEMA = vol.Schema(
     {
         vol.Optional("name", default="TypeSafe Conversation"): cv.string,
@@ -52,6 +127,7 @@ YAML_SCHEMA = vol.Schema(
         vol.Optional(CONF_LLM_SPLIT_MODEL): cv.string,
         vol.Optional(CONF_LLM_API_KEY): cv.string,
         vol.Optional(CONF_LLM_TIMEOUT): vol.All(vol.Coerce(float), vol.Range(min=5)),
+        vol.Optional("household"): HOUSEHOLD_SCHEMA,
     }
 )
 
@@ -62,6 +138,13 @@ def normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
     provider = data.setdefault(CONF_PROVIDER, PROVIDER_TYPESAFE)
     if provider not in (PROVIDER_TYPESAFE, PROVIDER_OPENROUTER):
         raise ValueError("Unknown decision provider")
+    if "household" in data:
+        if provider != PROVIDER_OPENROUTER or not data.get(CONF_OPENROUTER_ENTRY_ID):
+            raise ValueError("YAML capabilities require an OpenRouter entry reference")
+        try:
+            data["household"] = HOUSEHOLD_SCHEMA(data["household"])
+        except vol.Invalid as err:
+            raise ValueError("Invalid household capability configuration") from err
     data.setdefault(CONF_LOCAL_FALLBACK_ENABLED, provider == PROVIDER_TYPESAFE)
     data.setdefault(
         CONF_MODEL,

@@ -160,6 +160,12 @@ _CHUNK_SPLIT_RE = re.compile(
     re.IGNORECASE,
 )
 
+_RUSSIAN_MEDIA_SPLIT_RE = re.compile(
+    r"\b(?:включи|поставь|запусти|проиграй|воспроизведи|песню|трек|альбом|"
+    r"исполнителя|группу|на|через|из|от)\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass(slots=True, frozen=True)
 class ValueCandidate:
@@ -274,7 +280,13 @@ def media_chunks(utterance: str) -> tuple[str, ...]:
     offer the fragments and let it choose. This is the least robust extraction
     here; the router falls back to hassil when the pick is not confident.
     """
-    parts = [part.strip(" ,.?!") for part in _CHUNK_SPLIT_RE.split(utterance)]
+    # Keep English titles verbatim inside Russian commands.
+    splitter = (
+        _RUSSIAN_MEDIA_SPLIT_RE
+        if re.search(r"[а-яё]", utterance, re.I)  # noqa: RUF001 - Russian alphabet
+        else _CHUNK_SPLIT_RE
+    )
+    parts = [part.strip(' ,.?!"«»') for part in splitter.split(utterance)]
     chunks = [p for p in parts if len(p) >= 3]
     # Keep them unique and short enough to be a sensible search query.
     seen: set[str] = set()

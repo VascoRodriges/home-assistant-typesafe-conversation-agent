@@ -36,3 +36,5 @@ max-complexity = 15
 # The calibration and catalog scripts are operator tools: argv parsing and a
 # long linear main() are the point, not a smell.
 "scripts/*" = ["T20", "C901"]
+# Adapter question text and Russian speech intentionally contain long literals.
+"custom_components/typesafe_conversation/household*.py" = ["E501", "RUF001"]
