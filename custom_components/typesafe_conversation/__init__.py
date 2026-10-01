@@ -13,29 +13,51 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.core import HomeAssistant, SupportsResponse
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryNotReady,
+    HomeAssistantError,
+)
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.reload import async_integration_yaml_config
+from homeassistant.helpers.service import async_register_admin_service
 
 from .const import (
     CONF_API_KEY,
     CONF_MODEL,
+    CONF_PROVIDER,
     CONVERSATION_DOMAIN,
-    DEFAULT_MODEL,
     DOMAIN,
+    PROVIDER_TYPESAFE,
     TRACE_HISTORY,
     WARMUP_INTERVAL_SECONDS,
 )
 from .entities import EntityCatalog
+from .household import CANDIDATES, HouseholdRuntime
+from .household_policy import PolicyError
 from .llm_backend import LLMBackend, create_backend
+from .settings import YAML_SCHEMA, resolve_credentials
 from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 
 PLATFORMS = [Platform.CONVERSATION]
-CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+CONFIG_SCHEMA = vol.Schema({vol.Optional(DOMAIN): YAML_SCHEMA}, extra=vol.ALLOW_EXTRA)
+
+
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+    """Import one YAML-managed entry without storing referenced credentials."""
+    if DOMAIN in config:
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": "import"}, data=dict(config[DOMAIN])
+            )
+        )
+    return True
 
 
 @dataclass
@@ -46,6 +68,7 @@ class TypeSafeRuntimeData:
     catalog: EntityCatalog
     llm: LLMBackend | None
     model: str
+    household: HouseholdRuntime | None = None
     questions_cache: tuple[int, bool, dict[str, Any]] | None = None
     """Shared across turns: the question set is a pure function of the catalog."""
 
@@ -65,10 +88,15 @@ type TypeSafeConfigEntry = ConfigEntry[TypeSafeRuntimeData]
 async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> bool:
     """Set up TypeSafe Conversation from a config entry."""
     session = async_get_clientsession(hass)
+    try:
+        settings = resolve_credentials(hass, dict(entry.data))
+    except ValueError as err:
+        raise ConfigEntryNotReady(str(err)) from err
     client = SystemOneClient(
         session,
-        entry.data[CONF_API_KEY],
-        entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+        settings[CONF_API_KEY],
+        settings[CONF_MODEL],
+        provider=settings.get(CONF_PROVIDER, PROVIDER_TYPESAFE),
     )
 
     try:
@@ -87,13 +115,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> 
         catalog.async_start()
         store["catalog"] = catalog
 
-    llm = create_backend(session, {**entry.data})
+    household = None
+    if "household" in settings:
+        household = HouseholdRuntime(
+            hass,
+            {
+                **settings["household"],
+                "openrouter_entry_id": settings["openrouter_entry_id"],
+            },
+            entry.entry_id,
+            bool(settings.get("execution_enabled", False)),
+        )
+        try:
+            await household.initialize()
+        except (OSError, ValueError) as err:
+            raise ConfigEntryNotReady(
+                "Unable to initialize YAML catalog or budget"
+            ) from err
+    # Capability-mode model calls ALL go through the persisted budget gate.
+    llm = None if household else create_backend(session, settings)
     entry.runtime_data = TypeSafeRuntimeData(
         client=client,
         catalog=catalog,
         llm=llm,
-        model=entry.data.get(CONF_MODEL, DEFAULT_MODEL),
+        model=settings[CONF_MODEL],
+        household=household,
     )
+
+    if household:
+        _register_household_services(hass)
 
     if llm is not None:
         # A cold model load is seconds long and would be blamed on us, so pay
@@ -128,7 +178,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> bool:
     """Unload a config entry."""
+    household = entry.runtime_data.household
+    if household:
+        # Stop queued turns and further actions, then drain the persisted budget
+        # writer before a replacement runtime loads the same ledger.
+        household.active = False
+        async with household.lock:
+            pass
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unloaded and household:
+        household.active = True
+    if unloaded and entry.runtime_data.household:
+        hass.states.async_remove(entry.runtime_data.household.config["status_sensor"])
+        if not any(
+            other.entry_id != entry.entry_id
+            and getattr(other, "runtime_data", None)
+            and other.runtime_data.household
+            for other in hass.config_entries.async_entries(DOMAIN)
+        ):
+            for service in ("preview", "status", "reload_catalog", "reload_yaml"):
+                hass.services.async_remove(DOMAIN, service)
     if unloaded and not [
         other
         for other in hass.config_entries.async_entries(DOMAIN)
@@ -139,6 +208,88 @@ async def async_unload_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) ->
         if (catalog := store.pop("catalog", None)) is not None:
             catalog.async_stop()
     return unloaded
+
+
+def _register_household_services(hass: HomeAssistant) -> None:
+    """Services select exactly one entry; preview can never actuate."""
+
+    def runtime(call):
+        entries = [
+            entry
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if getattr(entry, "runtime_data", None)
+            and entry.runtime_data.household
+            and (
+                not call.data.get("entry_id") or entry.entry_id == call.data["entry_id"]
+            )
+        ]
+        if len(entries) != 1:
+            raise HomeAssistantError("Select one loaded TypeSafe capability entry")
+        return entries[0].runtime_data.household
+
+    async def preview(call):
+        candidate = call.data.get("candidate_model")
+        return await runtime(call).process(
+            call.data["text"],
+            context=call.context,
+            preview=True,
+            model_overrides={"planner": candidate} if candidate else None,
+        )
+
+    async def status(call):
+        return runtime(call).status()
+
+    async def reload_catalog(call):
+        try:
+            await runtime(call).reload_catalog()
+        except (OSError, PolicyError) as err:
+            raise HomeAssistantError(
+                "Unable to reload YAML capability catalog"
+            ) from err
+
+    async def reload_yaml(_call):
+        config = await async_integration_yaml_config(
+            hass, DOMAIN, raise_on_failure=True
+        )
+        if DOMAIN not in config:
+            raise HomeAssistantError("TypeSafe YAML configuration is missing")
+        data = dict(config[DOMAIN])
+        if not any(
+            entry.unique_id == "yaml:" + data["name"]
+            for entry in hass.config_entries.async_entries(DOMAIN)
+        ):
+            raise HomeAssistantError("Reload must keep the existing YAML agent name")
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "import"}, data=data
+        )
+        if result.get("reason") != "already_configured":
+            raise HomeAssistantError("YAML import could not update the existing agent")
+
+    selector = {vol.Optional("entry_id"): cv.string}
+    hass.services.async_register(
+        DOMAIN,
+        "preview",
+        preview,
+        schema=vol.Schema(
+            {
+                **selector,
+                vol.Required("text"): vol.All(cv.string, vol.Length(min=1, max=1200)),
+                vol.Optional("candidate_model"): vol.In(CANDIDATES),
+            }
+        ),
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "status",
+        status,
+        schema=vol.Schema(selector),
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN, "reload_catalog", reload_catalog, schema=vol.Schema(selector)
+    )
+    async_register_admin_service(hass, DOMAIN, "reload_yaml", reload_yaml)
 
 
 async def _async_update_listener(

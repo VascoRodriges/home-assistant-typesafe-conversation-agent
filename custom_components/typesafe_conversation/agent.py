@@ -53,6 +53,8 @@ class AgentSettings:
     inline_entity_descriptions: bool = False
     always_confirm_risky: bool = DEFAULT_ALWAYS_CONFIRM_RISKY
     bypass_local_intents: bool = False
+    execution_enabled: bool = True
+    local_fallback_enabled: bool = True
 
 
 class TypeSafeAgent:
@@ -147,6 +149,8 @@ class TypeSafeAgent:
             "value": plan.value,
             "relative_step": plan.relative_step,
             "text_slot": plan.text_slot,
+            "execution_enabled": self.settings.execution_enabled,
+            "cost_usd": response.cost_usd,
             **plan.trace,
         }
         LOGGER.debug(
@@ -251,6 +255,17 @@ class TypeSafeAgent:
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
     ) -> intent.IntentResponse:
+        if not self.settings.execution_enabled and plan.route in (
+            Route.COMMAND,
+            Route.CONFIRM,
+            Route.CANCEL,
+        ):
+            return self._speech(
+                user_input,
+                f"Preview only, nothing executed: {plan.action or plan.route.value} "
+                f"{plan.target.described}. Value: {plan.value}; "
+                f"relative change: {plan.relative_step}.",
+            )
         match plan.route:
             case Route.CANCEL:
                 return await async_execute_cancel(self.hass, user_input)
@@ -266,10 +281,15 @@ class TypeSafeAgent:
                 # because we advertise CONTROL the pipeline withheld exactly
                 # this intent from it. Give it the first try - it costs ~5ms.
                 if (
-                    local := await conversation.async_handle_intents(
-                        self.hass, user_input, chat_log
+                    self.settings.execution_enabled
+                    and self.settings.local_fallback_enabled
+                    and (
+                        local := await conversation.async_handle_intents(
+                            self.hass, user_input, chat_log
+                        )
                     )
-                ) is not None:
+                    is not None
+                ):
                     return local
                 if plan.query_kind == "needs_prose":
                     return await self._answer_freeform(user_input, chat_log)
@@ -354,6 +374,12 @@ class TypeSafeAgent:
             return await self._fallback(user_input, chat_log, None)
 
         parts = await self.llm.split_compound(user_input.text)
+        if not parts:
+            return self._error(
+                user_input,
+                intent.IntentResponseErrorCode.FAILED_TO_HANDLE,
+                "The complete request could not be split safely. Nothing executed.",
+            )
         if len(parts) <= 1:
             # Not actually compound, or the split failed. Either way, one more
             # pass without the compound branch resolves it.
@@ -369,8 +395,9 @@ class TypeSafeAgent:
 
         done: list[str] = []
         failed: list[str] = []
-        # Sequential, in the order the user said them: "turn on the AC and set
-        # it to 20" only works one way round.
+        plans: list[tuple[str, Plan]] = []
+        # Resolve every part first. An ambiguous second part must not let the
+        # first part actuate before we can ask the user to clarify.
         for part, result in zip(parts, results, strict=True):
             if isinstance(result, BaseException):
                 failed.append(part)
@@ -394,16 +421,41 @@ class TypeSafeAgent:
             if plan.route not in (Route.COMMAND, Route.QUERY):
                 failed.append(part)
                 continue
+            plans.append((part, plan))
+        if failed:
+            return self._error(
+                user_input,
+                intent.IntentResponseErrorCode.FAILED_TO_HANDLE,
+                f"Nothing executed. Please clarify: {_join(failed)}.",
+            )
+        if not self.settings.execution_enabled:
+            return self._speech(
+                user_input,
+                "Preview only, nothing executed: "
+                + "; ".join(
+                    f"{p.action or p.query_kind} {p.target.described} "
+                    f"(value={p.value}, delta={p.relative_step})"
+                    for _, p in plans
+                ),
+            )
+        # Execute sequentially and stop after any failed step. Physical actions
+        # cannot be rolled back, so report partial success explicitly.
+        for index, (part, plan) in enumerate(plans):
             sub_input = _with_text(user_input, part)
             try:
                 if plan.route is Route.QUERY:
-                    await async_execute_query(self.hass, plan, sub_input)
+                    result = await async_execute_query(self.hass, plan, sub_input)
                 else:
-                    await async_execute(self.hass, plan, sub_input, self.catalog)
+                    result = await async_execute(
+                        self.hass, plan, sub_input, self.catalog
+                    )
+                if result.error_code or _wholly_failed(result):
+                    raise ExecutionError("The step did not reach its target")
                 done.append(plan.target.described)
             except (ExecutionError, intent.IntentError) as err:
                 LOGGER.debug("Sub-command %r failed: %s", part, err)
-                failed.append(part)
+                failed.extend(text for text, _ in plans[index:])
+                break
 
         return self._compound_response(user_input, done, failed)
 
@@ -471,11 +523,29 @@ class TypeSafeAgent:
         prefer-local pass withheld HassGetState and HassMediaSearchAndPlay from
         the matcher. This is a genuinely new attempt, not a repeat of one.
         """
-        if (
-            local := await conversation.async_handle_intents(
-                self.hass, user_input, chat_log
+        if not self.settings.execution_enabled:
+            return self._error(
+                user_input,
+                intent.IntentResponseErrorCode.NO_INTENT_MATCH,
+                "Preview could not resolve this request. Nothing executed; "
+                "local command fallback is disabled in preview mode.",
             )
-        ) is not None:
+        if not self.settings.local_fallback_enabled and response is None:
+            return self._error(
+                user_input,
+                intent.IntentResponseErrorCode.FAILED_TO_HANDLE,
+                "Decision routing failed. Nothing executed; "
+                "local fallback is disabled.",
+            )
+        if (
+            self.settings.local_fallback_enabled
+            and (
+                local := await conversation.async_handle_intents(
+                    self.hass, user_input, chat_log
+                )
+            )
+            is not None
+        ):
             LOGGER.debug("Fallback: handled locally by the sentence matcher")
             return local
 

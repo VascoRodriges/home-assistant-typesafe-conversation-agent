@@ -2,11 +2,13 @@
   "config": {
     "step": {
       "user": {
-        "title": "TypeSafe credentials",
-        "description": "Create an API key at {console_url}",
+        "title": "Decision provider",
+        "description": "Use an OpenRouter key for pinned Jev 1.13, or a TypeSafe key from {console_url}. New agents default to preview mode. Disable local handling in the Assist pipeline when testing preview mode.",
         "data": {
-          "api_key": "TypeSafe API key",
-          "model": "Model"
+          "provider": "Provider",
+          "api_key": "Provider API key",
+          "model": "Decision model (blank uses provider default)",
+          "execution_enabled": "Allow device commands (off means preview only)"
         }
       },
       "llm": {
@@ -15,7 +17,8 @@
         "data": {
           "llm_backend": "Backend",
           "llm_base_url": "Base URL",
-          "llm_model": "Model",
+          "llm_model": "Model for answers",
+          "llm_split_model": "Model for splitting commands (blank uses answer model)",
           "llm_api_key": "API key",
           "llm_timeout": "Answer timeout"
         }
@@ -28,10 +31,16 @@
     "error": {
       "invalid_auth": "That API key was rejected.",
       "cannot_connect": "Could not reach the TypeSafe API.",
-      "unknown": "Unexpected error."
+      "unknown": "Unexpected error.",
+      "invalid_config": "Check the provider, credential source and explicit model names. Router aliases are not allowed."
     },
     "abort": {
-      "reauth_successful": "Re-authentication was successful."
+      "reauth_successful": "Re-authentication was successful.",
+      "invalid_config": "Invalid YAML settings or OpenRouter entry reference.",
+      "invalid_auth": "The provider rejected the API key.",
+      "cannot_connect": "Could not validate the provider key.",
+      "already_configured": "The YAML-managed integration was updated.",
+      "reauth_source": "Re-authenticate the referenced OpenRouter integration; the key is not copied here."
     }
   },
   "config_subentries": {
@@ -41,10 +50,14 @@
         "reconfigure": "Reconfigure this conversation agent"
       },
       "entry_type": "Conversation agent",
+      "abort": {
+        "yaml_managed": "This agent is managed in YAML. Edit configuration.yaml and restart Home Assistant."
+      },
       "step": {
         "set_options": {
           "data": {
             "name": "Name",
+            "execution_enabled": "Allow device commands (off means preview only)",
             "always_confirm_risky": "Always confirm before unlocking or opening",
             "inline_entity_descriptions": "Describe every entity inside the question",
             "bypass_local_intents": "Handle every command, including ones Home Assistant recognises"

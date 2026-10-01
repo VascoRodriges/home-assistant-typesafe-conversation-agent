@@ -62,28 +62,63 @@ async def test_split_parses_the_shapes_models_actually_return(
 
 
 @pytest.mark.parametrize("raw", ["I cannot do that", "", "{}", "[1, 2, 3]"])
-async def test_split_falls_back_to_the_original_utterance(session, mocker, raw):
-    """A useless split must cost the user nothing.
-
-    The request still runs as a single command, which is what would have
-    happened if the compound question had never fired.
-    """
+async def test_split_rejects_unusable_output(session, mocker, raw):
+    """Never guess an executable subset when the split cannot be validated."""
     backend = OllamaBackend(session, "http://ollama:11434", "qwen")
     mocker.post("http://ollama:11434/api/chat", json=_ollama(raw))
-    assert await backend.split_compound("turn on the lamp") == ["turn on the lamp"]
+    assert await backend.split_compound("turn on the lamp") == []
 
 
 async def test_split_survives_the_llm_being_down(session, mocker):
     backend = OllamaBackend(session, "http://ollama:11434", "qwen")
     mocker.post("http://ollama:11434/api/chat", status=500, text="boom")
-    assert await backend.split_compound("a and b") == ["a and b"]
+    assert await backend.split_compound("a and b") == []
 
 
 async def test_split_is_capped(session, mocker):
     backend = OllamaBackend(session, "http://ollama:11434", "qwen")
     raw = "[" + ",".join(f'"cmd {i}"' for i in range(20)) + "]"
     mocker.post("http://ollama:11434/api/chat", json=_ollama(raw))
-    assert len(await backend.split_compound("x")) == 6
+    assert await backend.split_compound("x") == []
+
+
+async def test_split_rejects_a_mixed_array(session, mocker):
+    backend = OllamaBackend(session, "http://ollama:11434", "qwen")
+    mocker.post("http://ollama:11434/api/chat", json=_ollama('["turn on lamp", 7]'))
+    assert await backend.split_compound("a and b") == []
+
+
+async def test_explicit_model_roles(session, mocker):
+    backend = OpenAICompatBackend(
+        session,
+        "https://openrouter.ai/api",
+        "openai/gpt-4o",
+        api_key="sk-test",
+        split_model="openai/gpt-4o-mini",
+    )
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    mocker.post(url, json=_openai('["a", "b"]'))
+    await backend.split_compound("a and b")
+    assert mocker.mock_calls[0][2]["model"] == "openai/gpt-4o-mini"
+    mocker.clear_requests()
+    mocker.post(url, json=_openai("An answer."))
+    await backend.answer_freeform(
+        "Question",
+        [],
+        home_state="",
+        local_time="12:00",
+        weekday="Monday",
+        speaker_area=None,
+    )
+    assert mocker.mock_calls[0][2]["model"] == "openai/gpt-4o"
+
+
+async def test_provider_errors_do_not_echo_secrets(session, mocker):
+    backend = OpenAICompatBackend(session, "https://x.invalid", "m", api_key="k")
+    mocker.post("https://x.invalid/v1/chat/completions", status=400, text="secret-key")
+    with pytest.raises(LLMBackendError, match="HTTP 400") as failure:
+        await backend._chat([], max_tokens=10, temperature=0, timeout=5)
+    assert "secret-key" not in str(failure.value)
 
 
 async def test_ollama_request_shape(session, mocker):

@@ -19,11 +19,20 @@ from .const import (
     CONF_API_KEY,
     CONF_LLM_API_KEY,
     CONF_LLM_BASE_URL,
+    CONF_OPENROUTER_ENTRY_ID,
 )
 
 # The base URL is redacted too: for a self-hosted model it is usually a private
 # hostname, and diagnostics get pasted into public issue threads.
-REDACT = {CONF_API_KEY, CONF_LLM_API_KEY, CONF_LLM_BASE_URL, "api_key", "token"}
+REDACT = {
+    CONF_API_KEY,
+    CONF_LLM_API_KEY,
+    CONF_LLM_BASE_URL,
+    CONF_OPENROUTER_ENTRY_ID,
+    "api_key",
+    "token",
+    "household",
+}
 
 
 async def async_get_config_entry_diagnostics(
@@ -64,4 +73,16 @@ async def async_get_config_entry_diagnostics(
             data.questions_cache[0] if data.questions_cache else None
         ),
         "recent_requests": list(data.traces),
+        "household": (
+            {
+                "models": data.household.config["models"],
+                "budget": data.household.budget.status(),
+                "execution_enabled": data.household.status()["execution_enabled"],
+                "capability_count": len(data.household.catalog.tools),
+                "last_path": data.household.last.get("path"),
+                "last_call_count": len(data.household.last.get("calls", [])),
+            }
+            if data.household
+            else None
+        ),
     }

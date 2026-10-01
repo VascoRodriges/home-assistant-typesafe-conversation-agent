@@ -8,6 +8,7 @@ from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import intent
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import TypeSafeConfigEntry
@@ -15,7 +16,9 @@ from .agent import AgentSettings, TypeSafeAgent
 from .const import (
     CONF_ALWAYS_CONFIRM_RISKY,
     CONF_BYPASS_LOCAL_INTENTS,
+    CONF_EXECUTION_ENABLED,
     CONF_INLINE_ENTITY_DESCRIPTIONS,
+    CONF_LOCAL_FALLBACK_ENABLED,
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     DOMAIN,
 )
@@ -58,7 +61,11 @@ class TypeSafeConversationEntity(
             "model": entry.runtime_data.model,
             "entry_type": "service",
         }
-        settings = {**entry.data, **subentry.data}
+        settings = (
+            dict(entry.data)
+            if entry.source == "import"
+            else {**entry.data, **subentry.data}
+        )
         # Advertising CONTROL is what makes Home Assistant hand us the
         # utterances worth spending a Jev call on. With "prefer handling
         # commands locally" on, the sentence matcher keeps every command it
@@ -92,7 +99,35 @@ class TypeSafeConversationEntity(
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
         data = self.entry.runtime_data
-        settings = {**self.entry.data, **self.subentry.data}
+        if data.household is not None:
+            history = [
+                {"role": item.role, "content": item.content[:500]}
+                for item in chat_log.content[:-1][-6:]
+                if item.role in ("user", "assistant") and isinstance(item.content, str)
+            ]
+            result = await data.household.process(
+                user_input.text, context=user_input.context, history=history
+            )
+            response = intent.IntentResponse(language=user_input.language)
+            if result.get("error"):
+                response.async_set_error(
+                    intent.IntentResponseErrorCode.UNKNOWN, result["speech"]
+                )
+            else:
+                response.async_set_speech(result["speech"])
+            chat_log.async_add_assistant_content_without_tools(
+                conversation.AssistantContent(
+                    agent_id=user_input.agent_id, content=result["speech"]
+                )
+            )
+            return conversation.ConversationResult(
+                response=response, conversation_id=chat_log.conversation_id
+            )
+        settings = (
+            dict(self.entry.data)
+            if self.entry.source == "import"
+            else {**self.entry.data, **self.subentry.data}
+        )
         agent = TypeSafeAgent(
             self.hass,
             data.catalog,
@@ -108,6 +143,10 @@ class TypeSafeConversationEntity(
                     )
                 ),
                 bypass_local_intents=bool(settings.get(CONF_BYPASS_LOCAL_INTENTS)),
+                execution_enabled=bool(settings.get(CONF_EXECUTION_ENABLED, True)),
+                local_fallback_enabled=bool(
+                    settings.get(CONF_LOCAL_FALLBACK_ENABLED, True)
+                ),
             ),
             traces=data.traces,
         )

@@ -8,6 +8,7 @@ aiohttp session HA already manages keeps the integration dependency-free.
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -20,7 +21,12 @@ from .const import (
     API_TIMEOUT,
     CIRCUIT_FAILURE_THRESHOLD,
     CIRCUIT_RESET_SECONDS,
+    DEFAULT_OPENROUTER_MODEL,
     LOGGER,
+    OPENROUTER_API_URL,
+    OPENROUTER_KEY_URL,
+    PROVIDER_OPENROUTER,
+    PROVIDER_TYPESAFE,
     TYPESAFE_API_URL,
     TYPESAFE_MODELS_URL,
 )
@@ -93,6 +99,7 @@ class SystemOneResponse:
     output_tokens: int
     latency_ms: float
     raw: dict[str, Any] = field(repr=False, default_factory=dict)
+    cost_usd: float | None = None
 
     def choice(self, key: str) -> ChoiceAnswer | None:
         answer = self.answers.get(key)
@@ -107,24 +114,52 @@ class SystemOneResponse:
         return answer.noul if isinstance(answer, NoulAnswer) else None
 
 
+def _number(value: Any, *, probability: bool = False) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or (probability and not 0 <= value <= 1)
+    ):
+        raise SystemOneError("Invalid numeric decision value")
+    return float(value)
+
+
 def _parse_answer(key: str, payload: dict[str, Any]) -> Answer:
+    """Reject malformed numbers before the pure router can consider acting."""
+    try:
+        return _parse_typed_answer(payload)
+    except (KeyError, TypeError, AttributeError) as err:
+        raise SystemOneError("Malformed typed decision answer") from err
+
+
+def _parse_typed_answer(payload: dict[str, Any]) -> Answer:
     kind = payload.get("type")
     if kind == "choice":
+        choice = payload["choice"]
+        probabilities = {
+            k: _number(v, probability=True) for k, v in payload["probabilities"].items()
+        }
+        if not isinstance(choice, str) or choice not in probabilities:
+            raise SystemOneError("Choice is not in its probability distribution")
         return ChoiceAnswer(
-            choice=payload["choice"],
-            probabilities={k: float(v) for k, v in payload["probabilities"].items()},
-            confidence=float(payload["confidence"]),
+            choice=choice,
+            probabilities=probabilities,
+            confidence=_number(payload["confidence"], probability=True),
         )
     if kind == "score":
         return ScoreAnswer(
-            score=float(payload["score"]),
+            score=_number(payload["score"]),
             legend=dict(payload.get("legend", {})),
-            probabilities={k: float(v) for k, v in payload["probabilities"].items()},
-            confidence=float(payload["confidence"]),
+            probabilities={
+                k: _number(v, probability=True)
+                for k, v in payload["probabilities"].items()
+            },
+            confidence=_number(payload["confidence"], probability=True),
         )
     if kind == "noul":
-        return NoulAnswer(noul=float(payload["noul"]))
-    raise SystemOneError(f"Unknown answer type {kind!r} for question {key!r}")
+        return NoulAnswer(noul=_number(payload["noul"], probability=True))
+    raise SystemOneError("Unknown decision answer type")
 
 
 class SystemOneClient:
@@ -135,10 +170,22 @@ class SystemOneClient:
         session: aiohttp.ClientSession,
         api_key: str,
         model: str,
+        *,
+        provider: str = PROVIDER_TYPESAFE,
     ) -> None:
         self._session = session
         self._api_key = api_key
         self._model = model
+        if provider not in (PROVIDER_TYPESAFE, PROVIDER_OPENROUTER):
+            raise ValueError("Unknown decision provider")
+        if provider == PROVIDER_OPENROUTER and model != DEFAULT_OPENROUTER_MODEL:
+            raise ValueError("OpenRouter decisions require pinned typesafe/jev-1.13")
+        self._provider = provider
+        self._api_url = (
+            OPENROUTER_API_URL if provider == PROVIDER_OPENROUTER else TYPESAFE_API_URL
+        )
+        # A timed-out billed request might already have completed. Do not repeat it.
+        self._attempts = 1 if provider == PROVIDER_OPENROUTER else API_MAX_RETRIES
         self._consecutive_failures = 0
         self._open_until = 0.0
 
@@ -155,20 +202,31 @@ class SystemOneClient:
         """Check the key and return the model names the account can use."""
         try:
             async with self._session.get(
-                TYPESAFE_MODELS_URL,
+                OPENROUTER_KEY_URL
+                if self._provider == PROVIDER_OPENROUTER
+                else TYPESAFE_MODELS_URL,
                 headers={"Authorization": f"Bearer {self._api_key}"},
                 timeout=aiohttp.ClientTimeout(total=API_TIMEOUT),
+                allow_redirects=False,
             ) as response:
                 if response.status in (401, 403):
-                    raise SystemOneAuthError("Invalid TypeSafe API key")
+                    raise SystemOneAuthError("Invalid decision-provider API key")
+                if 300 <= response.status < 400:
+                    raise SystemOneUnavailableError("Provider redirect rejected")
                 response.raise_for_status()
                 payload = await response.json()
         except SystemOneError:
             raise
         except aiohttp.ClientError as err:
-            raise SystemOneUnavailableError(str(err)) from err
+            raise SystemOneUnavailableError(
+                "Could not reach decision provider"
+            ) from err
         except TimeoutError as err:
             raise SystemOneUnavailableError("Timed out reaching TypeSafe") from err
+        if self._provider == PROVIDER_OPENROUTER:
+            if not isinstance(payload.get("data"), dict):
+                raise SystemOneUnavailableError("Unexpected key-validation response")
+            return [self._model]
         return [m["name"] for m in payload.get("models", [])]
 
     async def async_ask(
@@ -182,12 +240,12 @@ class SystemOneClient:
         started = time.monotonic()
         last_error: Exception | None = None
 
-        for attempt in range(API_MAX_RETRIES):
+        for attempt in range(self._attempts):
             try:
                 payload = await self._post(body)
             except SystemOneUnavailableError as err:
                 last_error = err
-                if attempt == API_MAX_RETRIES - 1:
+                if attempt == self._attempts - 1:
                     break
                 delay = (
                     err.retry_after
@@ -197,7 +255,7 @@ class SystemOneClient:
                 LOGGER.debug(
                     "Request attempt %s/%s failed (%s); retrying in %.2fs",
                     attempt + 1,
-                    API_MAX_RETRIES,
+                    self._attempts,
                     err,
                     delay,
                 )
@@ -208,6 +266,14 @@ class SystemOneClient:
                 self._record_failure()
                 raise
 
+            if self._provider == PROVIDER_OPENROUTER:
+                served = payload.get("model")
+                if served != self._model and not (
+                    isinstance(served, str) and served.startswith(self._model + "-")
+                ):
+                    raise SystemOneError(
+                        "Unexpected decision model; no action permitted"
+                    )
             self._consecutive_failures = 0
             latency_ms = (time.monotonic() - started) * 1000
             usage = payload.get("usage", {})
@@ -221,6 +287,7 @@ class SystemOneClient:
                 output_tokens=int(usage.get("output_tokens", 0)),
                 latency_ms=latency_ms,
                 raw=payload,
+                cost_usd=_parse_cost(usage.get("cost")),
             )
             LOGGER.debug(
                 "%s answered %s questions in %.0fms (%s input tokens)",
@@ -239,23 +306,23 @@ class SystemOneClient:
     async def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         try:
             async with self._session.post(
-                TYPESAFE_API_URL,
+                self._api_url,
                 json=body,
                 headers={
                     "Authorization": f"Bearer {self._api_key}",
                     "Content-Type": "application/json",
                 },
                 timeout=aiohttp.ClientTimeout(total=API_TIMEOUT),
+                allow_redirects=False,
             ) as response:
                 if response.status in (401, 403):
-                    raise SystemOneAuthError("Invalid TypeSafe API key")
-                if response.status == 422:
-                    detail = await response.text()
-                    # Our question builder produced something invalid. The body
-                    # names the offending field, so log it loudly - the
-                    # build-time validator should have caught this.
+                    raise SystemOneAuthError("Invalid decision-provider API key")
+                if 300 <= response.status < 400:
+                    raise SystemOneUnavailableError("Provider redirect rejected")
+                if response.status in (400, 422):
+                    # Provider errors can echo credentials or private home state.
                     raise SystemOneRequestError(
-                        f"The API rejected the request: {detail}"
+                        f"The API rejected the request (HTTP {response.status})"
                     )
                 if response.status in (429, 529):
                     raise _RetryableError(
@@ -271,7 +338,7 @@ class SystemOneClient:
         except SystemOneError:
             raise
         except aiohttp.ClientError as err:
-            raise _RetryableError(str(err)) from err
+            raise _RetryableError("Could not reach decision provider") from err
         except TimeoutError as err:
             raise _RetryableError("Timed out talking to the System One API") from err
 
@@ -299,9 +366,22 @@ def _parse_retry_after(value: str | None) -> float | None:
     if not value:
         return None
     try:
-        return max(0.0, float(value))
+        result = float(value)
+        return max(0.0, result) if math.isfinite(result) else None
     except ValueError:
         return None
+
+
+def _parse_cost(value: Any) -> float | None:
+    """Missing cost is unknown, not free."""
+    if (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value >= 0
+    ):
+        return float(value)
+    return None
 
 
 __all__ = [

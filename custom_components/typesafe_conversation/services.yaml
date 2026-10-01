@@ -1,0 +1,36 @@
+preview:
+  name: Preview a capability plan
+  description: Billed model processing without any device actions, even when execution is enabled.
+  fields:
+    text:
+      required: true
+      selector:
+        text:
+    entry_id:
+      selector:
+        text:
+    candidate_model:
+      description: Preview-only planner comparison; requires a configured price ceiling.
+      selector:
+        select:
+          options:
+            - google/gemini-2.5-flash-lite
+            - google/gemini-3.1-flash-lite
+            - openai/gpt-5-mini
+status:
+  name: Capability budget and status
+  description: Read local budget, selected models and last request diagnostics without a model call.
+  fields:
+    entry_id:
+      selector:
+        text:
+reload_catalog:
+  name: Reload the YAML capability catalog
+  description: Atomically reload the allowlisted script fields and labels. Does not reload HA scripts.
+  fields:
+    entry_id:
+      selector:
+        text:
+reload_yaml:
+  name: Reload YAML agent settings
+  description: Admin-only reload of the existing YAML agent without restarting HA. Keeps the agent name and budget ledger; drains in-flight processing before replacement.
