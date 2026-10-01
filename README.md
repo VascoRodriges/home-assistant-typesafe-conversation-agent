@@ -19,6 +19,9 @@ The fork adds an optional YAML capability mode for an existing smart home:
   Device logic stays in your YAML scripts, not a list of exact spoken phrases.
 - Persistent per-request/day/month budget reservations happen before paid calls;
   no automatic model replacement or billed timeout retry.
+- Optional read-only Recorder history: contextual sensor references, local-time
+  periods, past values, min/max, time-weighted means and comparisons. Models
+  select the query, while bounded local code retrieves and computes the facts.
 - Preview cannot actuate devices. Execution needs both the entry setting and a
   local switch, and successful replies require script response confirmation.
 

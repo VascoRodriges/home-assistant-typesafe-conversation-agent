@@ -86,6 +86,17 @@ HOUSEHOLD_SCHEMA = vol.Schema(
         ),
         vol.Required("capabilities"): {cv.slug: vol.In(["light", "media", "vacuum"])},
         vol.Optional("read_entities", default={}): {cv.entity_id: cv.string},
+        vol.Optional("history", default={}): vol.Schema(
+            {
+                vol.Optional("enabled", default=False): cv.boolean,
+                vol.Optional("max_days", default=7): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=31)
+                ),
+                vol.Optional("max_age_minutes", default=120): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=1440)
+                ),
+            }
+        ),
         vol.Optional("extra_context_entities", default={}): {
             vol.In(["light", "media", "vacuum"]): [cv.entity_id]
         },

@@ -292,6 +292,13 @@ class FastDecisions:
             ):
                 raise PlanError("low_confidence:timing")
             if intent == "sensor":
+                # A past question must never be answered using today's snapshot.
+                reading = answers.get("reading_mode")
+                if reading and (
+                    reading.get("choice") != "current"
+                    or reading.get("probabilities", {}).get("current", 0) < 0.85
+                ):
+                    raise PlanError("not_current_sensor_reading")
                 if route["choice"] != "home_query" or timing["choice"] != "no_control":
                     raise PlanError("not_readonly_sensor")
                 entity = pick("sensor")

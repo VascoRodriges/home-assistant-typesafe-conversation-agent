@@ -155,6 +155,46 @@ executed immediately.
 
 ## Budget, preview and privacy
 
+### Read-only historical sensor questions
+
+Enable this optional section under `household` (off by default):
+
+```yaml
+history:
+  enabled: true
+  max_days: 7
+  max_age_minutes: 120
+```
+
+Only `sensor.*` IDs in `read_entities` are readable, subject to the initiating
+user's HA read permissions. Uses Recorder's worker, not model-generated SQL.
+Recorder must already record those sensors; this integration never changes
+retention, exclusions or the database. No raw history is sent to cloud models.
+
+One Jev batch handles confident named periods and statistics; uncertain/custom
+dates use a small planner schema plus typed Jev review. Queries resolve dialogue
+references without replaying earlier tasks. Current-state fast paths cannot
+substitute today's reading for a past question. This branch never calls scripts.
+Mixed history/action requests ask to split the messages, rather than silently
+dropping an action or changing a device during a history lookup.
+
+Point queries use the last recorded state at or before the requested instant,
+within `max_age_minutes`, never a future/nearest sample. Replies show the source
+timestamp. Range statistics use time-weighted averages and report valid coverage;
+unknown/nonfinite states and stale gaps are not zero or interpolated. A bare
+“night” means the last completed 00:00–08:00 in HA's configured time zone, and
+the interval is shown in the response. Mixed units are refused.
+
+Windows are bounded by `max_days` (1–31; default 7), a 30,000-record guard and
+a 20-second async timeout. This uses retained raw states only, not long-term
+hourly statistics. Recorder workers already running may finish after timeout.
+Unavailable/old data gets an explicit answer, not guessed history. Generic
+dates must be offset-aware; future/out-of-window intervals are rejected locally.
+
+Examples: “what was that temperature yesterday at this time?”, “minimum in the
+study last night”, “average humidity yesterday”, “compare with yesterday at
+this time”. Multi-sensor comparisons are not yet supported.
+
 Every capability-mode model call reserves a conservative cost ceiling in
 `.storage/typesafe_conversation.<entry_id>.budget` before sending. UTC daily
 and monthly windows survive restart. Missing usage/timeout retains the
