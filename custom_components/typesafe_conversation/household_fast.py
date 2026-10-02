@@ -118,9 +118,9 @@ class FastDecisions:
         )
         self.questions = {
             "shape": choice(
-                "Can the ENTIRE latest request be handled as one immediate device operation or one sensor reading? Do not silently discard clauses.",
+                "Can the ENTIRE latest request be handled as one immediate device operation or one current sensor/client-status reading? Do not silently discard clauses.",
                 {
-                    "simple": "One immediate target and one operation; several settings of the SAME light are one operation. A literal track/artist search is one operation. No exclusions, future time or other tasks.",
+                    "simple": "One immediate target and one operation; several settings of the SAME light are one operation. A literal track/artist search is one operation. Blocking/unblocking internet for ONE named phone, or asking its current WAN permission, is one operation. No exclusions, future time or other tasks.",
                     "complex": "Several devices/tasks, exclusions, future/conditional actions, music mood/curation needing reformulation, or complex references.",
                     "unknown": "Cannot determine the entire request.",
                 },
@@ -249,6 +249,37 @@ class FastDecisions:
                 },
             ),
         }
+        for name, intent in (
+            ("voice_llm_network_access", "network_access"),
+            ("voice_llm_network_status", "network_status"),
+        ):
+            if name not in catalog.tools or catalog.tools[name]["group"] != "network":
+                continue
+            self.questions["intent"]["criteria"][intent] = (
+                "Explicitly block/allow WAN internet for ONE named own-home client; not whole Wi-Fi, schedules, questions or hypotheticals."
+                if intent == "network_access"
+                else "Read the actual connectivity/WAN permission of ONE named own-home client, without changing it."
+            )
+            field = catalog.tools[name]["arguments"]["properties"].get("client", {})
+            labels = catalog.labels.get(name, {}).get("client_names", {})
+            self.questions[intent + "_client"] = choice(
+                "Which ONE exact allowed network client is requested? Resolve labels and household preferences. Do not assume another device with a similar name.",
+                {
+                    **{key: labels.get(key, key) for key in field.get("enum", [])},
+                    "unknown": "Client not resolvable, not allowed, or several clients requested.",
+                },
+            )
+            if intent == "network_access":
+                self.questions["network_action"] = choice(
+                    "Which actual home-router internet access change is requested for the named phone? "
+                    "In this capability, internet means the home router's WAN permission; "
+                    "the user need not say WAN or Xiaomi. Questions/hypotheticals do not authorize control.",
+                    {
+                        "block": "Block this client's WAN internet: заблокируй, запрети, отключи интернет этому телефону.",
+                        "allow": "Allow/unblock this client's WAN internet: разреши, разблокируй, включи интернет этому телефону.",
+                        "unknown": "Not a WAN access control instruction.",
+                    },
+                )
         if config.get("builtin_preset"):
             for key in (
                 "power",
@@ -323,7 +354,16 @@ class FastDecisions:
                 "fast_control_threshold", 0.90
             ):
                 raise PlanError("low_confidence:timing")
-            if intent == "sensor":
+            if intent == "network_status":
+                if route["choice"] != "home_query" or timing["choice"] != "no_control":
+                    raise PlanError("not_readonly_network_status")
+                plan["operations"] = [
+                    {
+                        "capability": "voice_llm_network_status",
+                        "arguments": {"client": pick("network_status_client")},
+                    }
+                ]
+            elif intent == "sensor":
                 # A past question must never be answered using today's snapshot.
                 reading = answers.get("reading_mode")
                 if reading and (
@@ -408,6 +448,14 @@ class FastDecisions:
                             "destination": pick("player"),
                             "query": self.music_chunks[pick("music_query")],
                             "media_type": pick("media_kind"),
+                        },
+                    )
+                elif intent == "network_access":
+                    name, args = (
+                        "voice_llm_network_access",
+                        {
+                            "client": pick("network_access_client"),
+                            "access_action": pick("network_action"),
                         },
                     )
                 else:

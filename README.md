@@ -386,3 +386,26 @@ two-option Choice at p=0.66 scores 0.31; a seven-option Choice at the same
 probability scores 0.60. The action gate therefore thresholds the chosen
 option's **probability**, not its confidence — thresholding confidence made
 every script command fall back on a script-heavy home.
+
+### Optional client internet-access capabilities (0.4.2)
+
+The default one-click lighting/sensor profile is unchanged. Advanced YAML catalogs
+can opt into the `network` group with `voice_llm_network_access` and
+`voice_llm_network_status`. Define a **closed** `client` select in each script,
+`access_action: [block, allow]` only in the access script, and human-readable
+`client_names` in a variables step. Map these logical identifiers to verified
+device identities inside your own trusted HA scripts, never in model output.
+Household-specific names, MACs, IPs and router IDs are not included in this repo.
+
+Simple single-client requests use closed JEV decisions; compound requests use the
+same typed planner/review pipeline as other capabilities. Status questions may
+only call the fixed read-only status capability. This read-only capability can run
+while the command execution switch is off; preview never invokes any script.
+Schedules, arbitrary router services and global Wi-Fi blacklists are not supplied.
+
+The integration does not itself implement a firewall. Your access script must
+validate the allowlisted identity, protect infrastructure, read back the router's
+actual permission and return `{success: true, message: ...}` only after confirmation.
+The status script must genuinely be read-only. Fail with no success response on
+unknown identity/authority; do not automatically retry a possibly applied write.
+Router WAN blocking does not block mobile data, LAN or alternate-gateway traffic.

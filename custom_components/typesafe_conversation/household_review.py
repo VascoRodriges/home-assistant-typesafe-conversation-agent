@@ -44,6 +44,18 @@ class TypedReview:
                     "Coordinated lists share a preceding verb unless their own verb overrides it. "
                     "Do not require every excerpt to repeat the verb or fixture explicitly.",
                 )
+                if name in ("voice_llm_network_access", "voice_llm_network_status"):
+                    question = self.questions[prefix + "_source"]
+                    question["criteria"]["aligned"] = (
+                        "This user clause requests the proposed block/allow internet action "
+                        "for the same allowed phone, or asks its current status for a status operation. "
+                        "In own-home phone commands, internet refers to home-router WAN permission. "
+                        "The user need not literally say WAN, router brand or internal client key."
+                    )
+                    question["criteria"]["mismatched"] = (
+                        "The clause refers to another client/action, is a hypothetical/quoted control, "
+                        "asks status but proposes a mutation, or requests a future action."
+                    )
             alternatives = {
                 key: tool["description"]
                 for key, tool in catalog.tools.items()
@@ -94,9 +106,13 @@ class TypedReview:
                 description = schema.get("description", field)
                 key = prefix + "_" + field
                 if schema["type"] == "string" and "enum" in schema:
+                    label_key = {
+                        "destination": "player_names",
+                        "client": "client_names",
+                    }.get(field)
                     labels = (
-                        catalog.labels.get(name, {}).get("player_names", {})
-                        if field == "destination"
+                        catalog.labels.get(name, {}).get(label_key, {})
+                        if label_key
                         else {}
                     )
                     self.add(
@@ -176,7 +192,11 @@ class TypedReview:
                     "partial": "A requested change is omitted, or an unrequested/protected scope would change.",
                 },
                 "Check coverage of ALL latest-request clauses against proposed_actions. "
-                "Leaving a fixture unchanged requires NO action on it. Safe omitted defaults belong in scripts.",
+                "Leaving a fixture unchanged requires NO action on it. Safe omitted defaults belong in scripts. "
+                "For network access, an own-home request to block/allow a phone's internet means "
+                "its WAN permission on the home router. It does not implicitly request blocking "
+                "mobile data or every possible bypass; those are additional scopes only if explicitly named. "
+                "A device explicitly included in the trusted client catalog is not protected infrastructure.",
             )
         if plan["home_answer"]:
             self.add(

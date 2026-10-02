@@ -88,7 +88,9 @@ HOUSEHOLD_SCHEMA = vol.Schema(
                 ),
             }
         ),
-        vol.Required("capabilities"): {cv.slug: vol.In(["light", "media", "vacuum"])},
+        vol.Required("capabilities"): {
+            cv.slug: vol.In(["light", "media", "vacuum", "network"])
+        },
         vol.Optional("read_entities", default={}): {cv.entity_id: cv.string},
         vol.Optional("history", default={}): vol.Schema(
             {
@@ -102,7 +104,7 @@ HOUSEHOLD_SCHEMA = vol.Schema(
             }
         ),
         vol.Optional("extra_context_entities", default={}): {
-            vol.In(["light", "media", "vacuum"]): [cv.entity_id]
+            vol.In(["light", "media", "vacuum", "network"]): [cv.entity_id]
         },
         vol.Optional("review_threshold", default=0.8): vol.All(
             vol.Coerce(float), vol.Range(min=0.8, max=1)
