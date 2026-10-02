@@ -1,0 +1,167 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Decision provider",
+        "description": "Use an OpenRouter key for pinned Jev 1.13, or a TypeSafe key from {console_url}. New agents default to preview mode. Disable local handling in the Assist pipeline when testing preview mode.",
+        "data": {
+          "provider": "Provider",
+          "api_key": "Provider API key",
+          "model": "Decision model (blank uses provider default)",
+          "execution_enabled": "Allow device commands (off means preview only)"
+        }
+      },
+      "llm": {
+        "title": "Language model (optional)",
+        "description": "Jev decides every command and query on its own. A language model is only used to split requests that contain several commands, and to answer general questions. Leave this blank to skip it.",
+        "data": {
+          "llm_backend": "Backend",
+          "llm_base_url": "Base URL",
+          "llm_model": "Model for answers",
+          "llm_split_model": "Model for splitting commands (blank uses answer model)",
+          "llm_api_key": "API key",
+          "llm_timeout": "Answer timeout"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter your TypeSafe API key",
+        "data": {
+          "api_key": "TypeSafe API key"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "That API key was rejected.",
+      "cannot_connect": "Could not reach the TypeSafe API.",
+      "unknown": "Unexpected error.",
+      "invalid_config": "Check the provider, credential source and explicit model names. Router aliases are not allowed."
+    },
+    "abort": {
+      "reauth_successful": "Re-authentication was successful.",
+      "invalid_config": "Invalid YAML settings or OpenRouter entry reference.",
+      "invalid_auth": "The provider rejected the API key.",
+      "cannot_connect": "Could not validate the provider key.",
+      "already_configured": "The YAML-managed integration was updated.",
+      "reauth_source": "Re-authenticate the referenced OpenRouter integration; the key is not copied here."
+    }
+  },
+  "config_subentries": {
+    "conversation": {
+      "initiate_flow": {
+        "user": "Add a conversation agent",
+        "reconfigure": "Reconfigure this conversation agent"
+      },
+      "entry_type": "Conversation agent",
+      "abort": {
+        "yaml_managed": "This agent is managed in YAML. Edit configuration.yaml and restart Home Assistant."
+      },
+      "step": {
+        "set_options": {
+          "data": {
+            "name": "Name",
+            "execution_enabled": "Allow device commands (off means preview only)",
+            "always_confirm_risky": "Always confirm before unlocking or opening",
+            "inline_entity_descriptions": "Describe every entity inside the question",
+            "bypass_local_intents": "Handle every command, including ones Home Assistant recognises"
+          },
+          "data_description": {
+            "always_confirm_risky": "Ask first before unlocking a door, opening a garage or disarming an alarm, however sure the model is. Turning this off lets confident requests through silently.",
+            "inline_entity_descriptions": "Costs roughly twice the tokens. Only worth turning on if the agent picks the wrong device.",
+            "bypass_local_intents": "By default Home Assistant's own sentence matcher keeps the phrasings it recognises, and only sends the rest here. Turn this on to send everything here instead."
+          }
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки TypeSafe",
+        "description": "Сохранённые разделы интерфейса переопределяют YAML. Изменения перезагружают этого же агента, сохраняя расходы и ID. Ключ остаётся в интеграции OpenRouter.",
+        "menu_options": {
+          "general": "Безопасность и агент",
+          "models": "Модели и пределы цен",
+          "budget": "Лимиты расходов",
+          "history": "История датчиков",
+          "routing": "Маршрутизация и инструкции",
+          "catalog": "Каталог возможностей (расширенное)",
+          "restore_yaml": "Вернуть настройки YAML"
+        }
+      },
+      "general": {
+        "title": "Безопасность и агент",
+        "description": "Сохранённые разделы интерфейса переопределяют YAML. Изменения перезагружают этого же агента, сохраняя расходы и ID. Ключ остаётся в интеграции OpenRouter. Команды каталога требуют также включённого защитного переключателя. Остальные флаги относятся к нативному режиму.",
+        "data": {
+          "execution_enabled": "Разрешить управление устройствами",
+          "always_confirm_risky": "Подтверждать рискованные действия (нативный режим)",
+          "local_fallback_enabled": "Локальный резервный путь (нативный режим)",
+          "bypass_local_intents": "Обходить локальные шаблоны",
+          "inline_entity_descriptions": "Подробные описания объектов (нативный режим)"
+        }
+      },
+      "models": {
+        "title": "Модели и пределы цен",
+        "description": "Сохранённые разделы интерфейса переопределяют YAML. Изменения перезагружают этого же агента, сохраняя расходы и ID. Ключ остаётся в интеграции OpenRouter.",
+        "data": {
+          "decision": "Модель решений (фиксированная)",
+          "planner": "Анализ сложных запросов",
+          "answer": "Ответы на общие вопросы",
+          "web": "Ответы с поиском в интернете",
+          "prices": "Пределы цен: USD/миллион входных/выходных токенов"
+        }
+      },
+      "budget": {
+        "title": "Лимиты расходов",
+        "description": "Сохранённые разделы интерфейса переопределяют YAML. Изменения перезагружают этого же агента, сохраняя расходы и ID. Ключ остаётся в интеграции OpenRouter. Сохранение НЕ сбрасывает накопленные расходы.",
+        "data": {
+          "request_usd": "На запрос (USD)",
+          "daily_usd": "В сутки по UTC (USD)",
+          "monthly_usd": "В месяц по UTC (USD)"
+        }
+      },
+      "history": {
+        "title": "История датчиков",
+        "description": "Сохранённые разделы интерфейса переопределяют YAML. Изменения перезагружают этого же агента, сохраняя расходы и ID. Ключ остаётся в интеграции OpenRouter. Не меняет срок хранения Recorder.",
+        "data": {
+          "enabled": "Читать историю Recorder",
+          "max_days": "Максимальная глубина истории (дней)",
+          "max_age_minutes": "Максимальный возраст показания (минут)"
+        }
+      },
+      "routing": {
+        "title": "Маршрутизация и инструкции",
+        "description": "Сохранённые разделы интерфейса переопределяют YAML. Изменения перезагружают этого же агента, сохраняя расходы и ID. Ключ остаётся в интеграции OpenRouter.",
+        "data": {
+          "review_threshold": "Порог проверки плана",
+          "fast_control_threshold": "Вероятность быстрых команд",
+          "fast_read_threshold": "Вероятность быстрого чтения",
+          "fast_margin": "Минимальный отрыв вероятностей",
+          "web_enabled": "Разрешить поиск в интернете",
+          "instructions": "Дополнительные инструкции для дома"
+        }
+      },
+      "catalog": {
+        "title": "Каталог возможностей (расширенное)",
+        "description": "Сохранённые разделы интерфейса переопределяют YAML. Изменения перезагружают этого же агента, сохраняя расходы и ID. Ключ остаётся в интеграции OpenRouter.",
+        "data": {
+          "script_catalog": "Путь к каталогу внутри конфигурации HA",
+          "execution_switch": "Защитный переключатель input_boolean",
+          "status_sensor": "Датчик бюджета",
+          "capabilities": "Разрешённые скрипты → light/media/vacuum",
+          "read_entities": "Читаемые сущности: ID → описание",
+          "extra_context_entities": "Дополнительный контекст по группам"
+        }
+      },
+      "restore_yaml": {
+        "title": "Вернуть настройки YAML",
+        "description": "Удалить все переопределения интерфейса и вернуть YAML, включая разрешение управления устройствами. Накопленные расходы сохранятся.",
+        "data": {
+          "confirm": "Удалить все переопределения интерфейса"
+        }
+      }
+    },
+    "error": {
+      "invalid_config": "Проверьте модели, цены всех выбранных моделей и ограничения полей. Некорректные настройки не сохранены."
+    }
+  }
+}

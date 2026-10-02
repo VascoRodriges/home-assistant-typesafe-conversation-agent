@@ -25,7 +25,9 @@
       },
       "reauth_confirm": {
         "title": "Re-enter your TypeSafe API key",
-        "data": { "api_key": "TypeSafe API key" }
+        "data": {
+          "api_key": "TypeSafe API key"
+        }
       }
     },
     "error": {
@@ -69,6 +71,97 @@
           }
         }
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TypeSafe settings",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration.",
+        "menu_options": {
+          "general": "Safety and agent",
+          "models": "Models and price ceilings",
+          "budget": "Expense limits",
+          "history": "Sensor history",
+          "routing": "Routing and instructions",
+          "catalog": "Advanced capability catalog",
+          "restore_yaml": "Restore YAML"
+        }
+      },
+      "general": {
+        "title": "Safety and agent",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration. Capability commands also require the execution helper. Other toggles apply to native mode.",
+        "data": {
+          "execution_enabled": "Allow device commands",
+          "always_confirm_risky": "Confirm risky native actions",
+          "local_fallback_enabled": "Native local fallback",
+          "bypass_local_intents": "Bypass local intents",
+          "inline_entity_descriptions": "Inline native entity descriptions"
+        }
+      },
+      "models": {
+        "title": "Models and price ceilings",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration.",
+        "data": {
+          "decision": "Decision model (pinned)",
+          "planner": "Complex request planner",
+          "answer": "General answer model",
+          "web": "Internet answer model",
+          "prices": "Price ceilings: USD/million input/output tokens"
+        }
+      },
+      "budget": {
+        "title": "Expense limits",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration. Saving NEVER resets recorded expenses.",
+        "data": {
+          "request_usd": "Per request (USD)",
+          "daily_usd": "Per UTC day (USD)",
+          "monthly_usd": "Per UTC month (USD)"
+        }
+      },
+      "history": {
+        "title": "Sensor history",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration. Does not change Recorder retention.",
+        "data": {
+          "enabled": "Read Recorder history",
+          "max_days": "Maximum lookback (days)",
+          "max_age_minutes": "Maximum measurement age (minutes)"
+        }
+      },
+      "routing": {
+        "title": "Routing and instructions",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration.",
+        "data": {
+          "review_threshold": "Planner review threshold",
+          "fast_control_threshold": "Fast command probability",
+          "fast_read_threshold": "Fast read probability",
+          "fast_margin": "Minimum probability margin",
+          "web_enabled": "Allow internet search",
+          "instructions": "Additional household instructions"
+        }
+      },
+      "catalog": {
+        "title": "Advanced capability catalog",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration.",
+        "data": {
+          "script_catalog": "Script catalog path inside HA config",
+          "execution_switch": "Execution gate input_boolean",
+          "status_sensor": "Budget status sensor",
+          "capabilities": "Allowed script → light/media/vacuum",
+          "read_entities": "Readable entity ID → description",
+          "extra_context_entities": "Extra context by domain"
+        }
+      },
+      "restore_yaml": {
+        "title": "Restore YAML",
+        "description": "Remove all UI overrides and return to YAML, including its device execution permission. Expenses are retained.",
+        "data": {
+          "confirm": "Remove all UI overrides"
+        }
+      }
+    },
+    "error": {
+      "invalid_config": "Check models, ceilings for every selected model and field limits. Invalid settings were not saved."
     }
   }
 }

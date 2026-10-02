@@ -22,6 +22,7 @@ from .const import (
     DEFAULT_ALWAYS_CONFIRM_RISKY,
     DOMAIN,
 )
+from .settings import effective_settings
 
 
 async def async_setup_entry(
@@ -62,9 +63,9 @@ class TypeSafeConversationEntity(
             "entry_type": "service",
         }
         settings = (
-            dict(entry.data)
+            effective_settings(entry)
             if entry.source == "import"
-            else {**entry.data, **subentry.data}
+            else {**entry.data, **subentry.data, **entry.options}
         )
         # Advertising CONTROL is what makes Home Assistant hand us the
         # utterances worth spending a Jev call on. With "prefer handling
@@ -124,9 +125,9 @@ class TypeSafeConversationEntity(
                 response=response, conversation_id=chat_log.conversation_id
             )
         settings = (
-            dict(self.entry.data)
+            effective_settings(self.entry)
             if self.entry.source == "import"
-            else {**self.entry.data, **self.subentry.data}
+            else {**self.entry.data, **self.subentry.data, **self.entry.options}
         )
         agent = TypeSafeAgent(
             self.hass,

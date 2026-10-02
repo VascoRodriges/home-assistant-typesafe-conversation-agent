@@ -42,7 +42,7 @@ from .entities import EntityCatalog
 from .household import CANDIDATES, HouseholdRuntime
 from .household_policy import PolicyError
 from .llm_backend import LLMBackend, create_backend
-from .settings import YAML_SCHEMA, resolve_credentials
+from .settings import YAML_SCHEMA, effective_settings, resolve_credentials
 from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 
 PLATFORMS = [Platform.CONVERSATION]
@@ -89,7 +89,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> 
     """Set up TypeSafe Conversation from a config entry."""
     session = async_get_clientsession(hass)
     try:
-        settings = resolve_credentials(hass, dict(entry.data))
+        settings = resolve_credentials(hass, effective_settings(entry))
     except ValueError as err:
         raise ConfigEntryNotReady(str(err)) from err
     client = SystemOneClient(

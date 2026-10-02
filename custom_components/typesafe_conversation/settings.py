@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 import voluptuous as vol
@@ -86,6 +87,17 @@ HOUSEHOLD_SCHEMA = vol.Schema(
         ),
         vol.Required("capabilities"): {cv.slug: vol.In(["light", "media", "vacuum"])},
         vol.Optional("read_entities", default={}): {cv.entity_id: cv.string},
+        vol.Optional("history", default={}): vol.Schema(
+            {
+                vol.Optional("enabled", default=False): cv.boolean,
+                vol.Optional("max_days", default=7): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=31)
+                ),
+                vol.Optional("max_age_minutes", default=120): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=1440)
+                ),
+            }
+        ),
         vol.Optional("extra_context_entities", default={}): {
             vol.In(["light", "media", "vacuum"]): [cv.entity_id]
         },
@@ -130,6 +142,22 @@ YAML_SCHEMA = vol.Schema(
         vol.Optional("household"): HOUSEHOLD_SCHEMA,
     }
 )
+
+
+def effective_settings(entry) -> dict[str, Any]:
+    """UI overrides are explicit; YAML remains the baseline, never rewritten."""
+    data = deepcopy(dict(entry.data))
+    for key, value in entry.options.items():
+        if key == "household":
+            household = data.setdefault("household", {})
+            for field, setting in value.items():
+                if field in ("models", "budget", "history"):
+                    household.setdefault(field, {}).update(deepcopy(setting))
+                else:
+                    household[field] = deepcopy(setting)
+        else:
+            data[key] = deepcopy(value)
+    return data
 
 
 def normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
