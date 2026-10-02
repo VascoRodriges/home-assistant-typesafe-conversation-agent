@@ -1,13 +1,26 @@
 # TypeSafe Conversation for Home Assistant
 
-## OpenRouter + YAML capability fork
+![TypeSafe Conversation](custom_components/typesafe_conversation/brand/icon.png)
+
+## Quick start + OpenRouter capability fork
 
 Original integration by **Sofiane Ghadab (@the-sof)**:
 [upstream repository](https://github.com/the-sof/home-assistant-typesafe-conversation-agent).
 This public fork is maintained by **VascoRodriges**. The original MIT license and
 author attribution are preserved; this is not an official TypeSafe or HA release.
 
-The fork adds an optional YAML capability mode for an existing smart home:
+**New in v0.4.0:** a ready-made **Lights and sensors** profile, local integration
+icons, and a setup guide inside HA. Choose **Quick start** when adding the
+integration; models, budgets and local checks are preselected. No YAML or custom
+scripts are needed for Assist-exposed lights and numeric sensors. Device commands
+default to preview; enable them with one explicit permission toggle. Credentials,
+working HA devices and Assist exposure/pipeline setup are still required.
+
+[Start here: installation and first request](docs/quickstart.md).
+No personal entities, room maps, credentials or household scripts are bundled.
+Existing advanced installations keep their configuration.
+
+The fork also adds an optional advanced YAML capability mode for an existing home:
 
 - One batch of pinned `typesafe/jev-1.13` decisions handles eligible simple
   commands and sensor readings without a generative model.

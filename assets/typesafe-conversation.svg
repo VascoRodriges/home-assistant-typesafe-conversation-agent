@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>TypeSafe Conversation — home, speech and typed decisions</title>
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="#163451"/>
+  <path d="M48 116L128 49L208 116" fill="none" stroke="#57d9d1" stroke-width="14" stroke-linejoin="round"/>
+  <rect x="64" y="111" width="128" height="99" rx="17" fill="#f5faff"/>
+  <rect x="86" y="126" width="84" height="59" rx="17" fill="#163451"/>
+  <path d="M145 176L157 195L161 177" fill="#163451"/>
+  <path d="M104 148V165M116 137V174M128 143V169M140 137V174M152 148V165" stroke="#57d9d1" stroke-width="5"/>
+  <circle cx="203" cy="201" r="25" fill="#57d9d1"/>
+  <path d="M189 201L198 210L215 191" fill="none" stroke="#163451" stroke-width="5" stroke-linejoin="round"/>
+</svg>

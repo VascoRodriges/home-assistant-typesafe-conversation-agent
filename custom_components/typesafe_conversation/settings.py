@@ -32,6 +32,7 @@ from .const import (
     PROVIDER_OPENROUTER,
     PROVIDER_TYPESAFE,
 )
+from .presets import BASIC_CAPABILITIES, BASIC_CATALOG
 
 PRICE_SCHEMA = vol.Schema(
     {
@@ -45,6 +46,8 @@ PRICE_SCHEMA = vol.Schema(
 )
 HOUSEHOLD_SCHEMA = vol.Schema(
     {
+        vol.Optional("builtin_preset", default=False): cv.boolean,
+        vol.Optional("basic_entities", default=[]): [cv.entity_id],
         vol.Required("script_catalog"): cv.string,
         vol.Required("execution_switch"): cv.entity_id,
         vol.Optional(
@@ -167,12 +170,28 @@ def normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
     if provider not in (PROVIDER_TYPESAFE, PROVIDER_OPENROUTER):
         raise ValueError("Unknown decision provider")
     if "household" in data:
-        if provider != PROVIDER_OPENROUTER or not data.get(CONF_OPENROUTER_ENTRY_ID):
-            raise ValueError("YAML capabilities require an OpenRouter entry reference")
+        if provider != PROVIDER_OPENROUTER:
+            raise ValueError("Capability mode requires OpenRouter")
         try:
             data["household"] = HOUSEHOLD_SCHEMA(data["household"])
         except vol.Invalid as err:
             raise ValueError("Invalid household capability configuration") from err
+        household = data["household"]
+        if household["builtin_preset"] and (
+            household["script_catalog"] != BASIC_CATALOG
+            or household["capabilities"] != BASIC_CAPABILITIES
+            or household["extra_context_entities"]
+            or any(
+                entity.split(".")[0] not in ("light", "sensor")
+                for entity in household["basic_entities"]
+            )
+        ):
+            raise ValueError("Built-in profile is restricted to lights and sensors")
+        if (
+            not household["builtin_preset"]
+            and household["script_catalog"] == BASIC_CATALOG
+        ):
+            raise ValueError("Built-in catalog requires the built-in profile")
     data.setdefault(CONF_LOCAL_FALLBACK_ENABLED, provider == PROVIDER_TYPESAFE)
     data.setdefault(
         CONF_MODEL,

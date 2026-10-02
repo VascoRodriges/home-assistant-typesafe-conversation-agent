@@ -171,8 +171,10 @@ class Catalog:
                 },
                 "preserve": {
                     "type": "array",
-                    "items": {"type": "string", "enum": list(self.lights)},
-                    "maxItems": 12,
+                    "items": {"type": "string", "enum": list(self.lights)}
+                    if self.lights
+                    else {"type": "string"},
+                    "maxItems": 12 if self.lights else 0,
                     "description": "Fixtures the user explicitly leaves unchanged. Resolve aliases from the catalog. Never modify their underlying entities.",
                 },
                 "home_answer": nullable(
@@ -304,7 +306,7 @@ class Catalog:
                 else "Выключить ресивер и остановить его музыку"
             )
         if name == "voice_llm_all_lights_off":
-            return "Выключить всё обычное освещение во всех комнатах дома, кроме аквариумов"
+            return "Выключить освещение в пределах разрешённых целей каталога"
         if name == "voice_llm_play_music":
             return (
                 f"Включить музыку: запрос «{args['query']}», на {args['destination']} через Music Assistant"
