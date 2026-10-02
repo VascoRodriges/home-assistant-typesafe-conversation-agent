@@ -38,6 +38,16 @@ MODE = {
 }
 
 
+def explicit_time(text):
+    return bool(
+        re.search(
+            r"\b\d{1,2}:\d{2}\b|\b(?:в|at)\s+\d{1,2}\.\d{2}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
+
 def selected(answer, criteria, threshold=0.85, margin=0.15):
     value, _confidence, gap = read_choice(answer, criteria)
     if answer["probabilities"][value] < threshold or gap < margin:
@@ -81,7 +91,7 @@ class HistoryQueries:
     def fast(self, answers, text=""):
         # A typed classifier can still confuse an explicit clock with 'now'.
         # Clock/date syntax is a safety guard, not a phrase-to-action parser.
-        if re.search(r"\b\d{1,2}[:.]\d{2}\b|\b\d{4}-\d{2}-\d{2}\b", text):
+        if explicit_time(text):
             return None
         values = {}
         for field in ("entity", "metric", "period"):
@@ -315,6 +325,10 @@ async def answer_history(runtime, text, history, request, context):
                 or "Уточните комнату, показатель и время для чтения истории."
             )
         # Validate window/type before spending on semantic review.
+        if explicit_time(text) and query["period"] != "custom":
+            raise PolicyError(
+                "Explicit requested clock/date must not use a named period"
+            )
         interval(query, now, options)
         questions, expected = router.review(query)
         reviewed = (
