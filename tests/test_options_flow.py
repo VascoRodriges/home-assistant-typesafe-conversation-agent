@@ -122,7 +122,8 @@ async def test_bad_history_rejected_without_entry_mutation(hass, entry):
     # HA rejects out-of-range selector values before invoking our step.
     with pytest.raises(InvalidData):
         await hass.config_entries.options.async_configure(
-            result["flow_id"], {"enabled": True, "max_days": 100, "max_age_minutes": 120}
+            result["flow_id"],
+            {"enabled": True, "max_days": 100, "max_age_minutes": 120},
         )
     assert not entry.options
 
