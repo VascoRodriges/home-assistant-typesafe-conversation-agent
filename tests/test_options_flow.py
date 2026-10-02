@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.config_entries import SOURCE_IMPORT
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -119,11 +119,11 @@ async def test_history_save_retains_identity_data_other_options_and_ledger(hass,
 
 async def test_bad_history_rejected_without_entry_mutation(hass, entry):
     result = await open_section(hass, entry, "history")
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"enabled": True, "max_days": 100, "max_age_minutes": 120}
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"base": "invalid_config"}
+    # HA rejects out-of-range selector values before invoking our step.
+    with pytest.raises(InvalidData):
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], {"enabled": True, "max_days": 100, "max_age_minutes": 120}
+        )
     assert not entry.options
 
 
