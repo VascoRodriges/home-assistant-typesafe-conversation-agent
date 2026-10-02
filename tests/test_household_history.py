@@ -81,6 +81,14 @@ def test_yesterday_uses_local_calendar_and_clock():
     assert end == datetime(2026, 9, 30, 21, tzinfo=UTC)
 
 
+@pytest.mark.parametrize(
+    "text", ["вчера в 21:00", "вчера в 21.00", "2026-09-30 в это время"]
+)
+def test_explicit_clock_never_uses_wrong_named_fast_period(runtime, text):
+    historical(runtime)
+    assert runtime.history_router.fast(runtime.fast_answers, text) is None
+
+
 @pytest.mark.parametrize("hour,date", [(23, 1), (3, 30)])
 def test_last_completed_night(hour, date):
     start, end = interval(query("minimum", "last_night"), NOW.replace(hour=hour), {})

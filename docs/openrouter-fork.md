@@ -30,6 +30,28 @@ No confirmed search metadata/citations means no purported live facts.
 
 ## Synthetic YAML example
 
+### Native Home Assistant settings window
+
+After setup, open **Settings → Devices & services → TypeSafe Conversation →
+Configure**. The native options dialog has safety, models/price ceilings, budget,
+history, routing/instructions and advanced catalog sections, with Russian labels.
+Each section validates the complete proposed configuration before saving and
+reloads the same entry. Model price ceilings must exist for every selected model;
+catalog edits also validate the file and its allowlisted script definitions.
+
+Saved UI sections override the YAML baseline through `entry.options`. They survive
+YAML re-import and restart; YAML files are never silently rewritten. **Restore
+YAML** requires confirmation and removes all UI overrides, including execution
+permission, without touching expense storage. This can re-enable execution if
+the YAML baseline enables it; the separate execution helper must still be on.
+Model changes, saving budget limits and restoring YAML never reset accumulated
+costs. Existing script definitions and their field/target contracts remain YAML;
+the window configures this integration, not an arbitrary script editor.
+
+General toggles other than execution permission apply to the native agent.
+Capability-mode models are always selected by its four explicit roles; no router
+aliases, API-key copies or budget-reset controls are offered in the window.
+
 Place a package similar to this in your HA configuration. Replace ONLY the
 example IDs locally. Your script catalog is never part of this repository.
 

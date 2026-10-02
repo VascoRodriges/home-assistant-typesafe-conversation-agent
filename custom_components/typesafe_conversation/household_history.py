@@ -3,6 +3,7 @@
 import asyncio
 import json
 import math
+import re
 from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -20,7 +21,7 @@ METRICS = {
     "compare_current": "Compare the current measurement with a past instant.",
 }
 PERIODS = {
-    "yesterday_now": "Yesterday at the same LOCAL clock time as this request.",
+    "yesterday_now": "Yesterday at the same LOCAL clock time as this request ONLY when latest_request says 'at this time' / 'в это время'. An explicit clock such as 21:00 MUST use custom, never this option.",
     "yesterday": "The whole previous local calendar day.",
     "today": "Today from local midnight until this request.",
     "last_night": "Most recent completed night, default 00:00-08:00 local time; an explicitly different interval needs custom.",
@@ -77,7 +78,11 @@ class HistoryQueries:
             ),
         }
 
-    def fast(self, answers):
+    def fast(self, answers, text=""):
+        # A typed classifier can still confuse an explicit clock with 'now'.
+        # Clock/date syntax is a safety guard, not a phrase-to-action parser.
+        if re.search(r"\b\d{1,2}[:.]\d{2}\b|\b\d{4}-\d{2}-\d{2}\b", text):
+            return None
         values = {}
         for field in ("entity", "metric", "period"):
             name = "history_" + field
@@ -261,7 +266,7 @@ async def answer_history(runtime, text, history, request, context):
     now = datetime.now(ZoneInfo(runtime.hass.config.time_zone))
     schema = router.schema()
     try:
-        query = router.fast(runtime.fast_answers)
+        query = router.fast(runtime.fast_answers, text)
     except PolicyError:
         query = None
     if query is None:

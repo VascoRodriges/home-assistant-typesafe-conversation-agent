@@ -53,6 +53,7 @@ from .const import (
     PROVIDER_TYPESAFE,
     TYPESAFE_CONSOLE_URL,
 )
+from .options_flow import TypeSafeOptionsFlow
 from .settings import YAML_SCHEMA, normalize_settings, resolve_credentials
 from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 
@@ -99,6 +100,11 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Set up the TypeSafe credentials, then the optional LLM."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> TypeSafeOptionsFlow:
+        return TypeSafeOptionsFlow()
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}

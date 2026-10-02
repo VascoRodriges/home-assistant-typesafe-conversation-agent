@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 import voluptuous as vol
@@ -141,6 +142,22 @@ YAML_SCHEMA = vol.Schema(
         vol.Optional("household"): HOUSEHOLD_SCHEMA,
     }
 )
+
+
+def effective_settings(entry) -> dict[str, Any]:
+    """UI overrides are explicit; YAML remains the baseline, never rewritten."""
+    data = deepcopy(dict(entry.data))
+    for key, value in entry.options.items():
+        if key == "household":
+            household = data.setdefault("household", {})
+            for field, setting in value.items():
+                if field in ("models", "budget", "history"):
+                    household.setdefault(field, {}).update(deepcopy(setting))
+                else:
+                    household[field] = deepcopy(setting)
+        else:
+            data[key] = deepcopy(value)
+    return data
 
 
 def normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
