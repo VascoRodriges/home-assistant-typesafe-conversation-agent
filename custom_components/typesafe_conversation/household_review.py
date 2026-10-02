@@ -9,15 +9,38 @@ from .household_policy import PlanError
 class TypedReview:
     """Offer actual alternatives for each generated field, plus whole coverage."""
 
-    def __init__(self, catalog, plan, text):  # noqa: C901 - schema-driven question builder
+    def __init__(self, catalog, plan, text, *, sources=None):  # noqa: C901 - schema-driven question builder
         self.questions = {}
         self.expected = {}
         self.scopes = {}
+        self.sources = {}
+        if sources is not None and len(sources) != len(plan["operations"]):
+            raise PlanError("Source count does not match operation count")
         numbers = number_candidates(text)
         for index, operation in enumerate(plan["operations"]):
             name, args = operation["capability"], operation["arguments"]
             prefix = f"operation_{index}"
             self.scopes[prefix] = catalog.describe(operation)
+            if sources is not None:
+                source = sources[index]
+                if (
+                    not isinstance(source, str)
+                    or not source.strip()
+                    or source not in text
+                ):
+                    raise PlanError("Operation source must be from the current request")
+                self.sources[prefix] = source
+                self.add(
+                    prefix + "_source",
+                    "aligned",
+                    {
+                        "aligned": "This excerpt actually requests the proposed action, with references resolved in the whole current request.",
+                        "mismatched": "This excerpt belongs to another action, is incomplete/misleading, or does not authorize the proposed change.",
+                    },
+                    "Independently check the binding of operation_sources to proposed_actions. "
+                    "A copied excerpt is not proof the planner chose the right action. "
+                    "Check negation, scope, inherited references and the whole latest request.",
+                )
             alternatives = {
                 key: tool["description"]
                 for key, tool in catalog.tools.items()
@@ -50,8 +73,13 @@ class TypedReview:
                     prefix + "_target",
                     canonical[target],
                     criteria,
-                    "Which EXACT light scope is requested for THIS operation? Room defaults "
-                    "to MAIN only; secondary lights need explicit scope. Apply household_preferences.",
+                    "Which EXACT light scope is requested for THIS operation's source excerpt? "
+                    "Resolve omitted subjects from the nearest explicitly named fixture/area in "
+                    "preceding clauses of latest_request, unless another one is named. "
+                    "An inherited subject is more specific than a room default. Use "
+                    "household_preferences for any remaining default, not MAIN for every clause. "
+                    "Do not choose the first clause's operation when reviewing the second. "
+                    "The generated target is NOT authority.",
                 )
             for field, value in args.items():
                 if name == "voice_llm_room_lights" and field in ("room", "fixture"):
@@ -178,7 +206,10 @@ class TypedReview:
         self.expected[name] = expected
         self.questions[name] = choice(
             instructions
-            + " The operation_<N> prefix identifies the corresponding proposed operation.",
+            + " The operation_<N> prefix identifies the corresponding proposed operation. "
+            "Use operation_sources[operation_<N>] to identify its clause, then the "
+            "whole original request to resolve references and exclusions. "
+            "Do not transfer another clause's parameters to this operation.",
             criteria,
         )
 
