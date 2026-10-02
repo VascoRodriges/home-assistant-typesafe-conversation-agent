@@ -197,7 +197,7 @@ class FastDecisions:
                 },
             ),
             "player": choice(
-                "Which playback destination? Room music means Chromecast; receiver and Alice only when named.",
+                "Which playback destination? Resolve supplied labels and household preferences; do not assume a room's player technology.",
                 {**self.players, "unknown": "No resolvable playback destination."},
             ),
             "playback": choice(
@@ -212,7 +212,7 @@ class FastDecisions:
                 },
             ),
             "sensor": choice(
-                "Which exact household sensor answers the requested measurement? Room temperature uses room sensor, not clock unless explicitly requested.",
+                "Which exact sensor answers the requested measurement? Resolve supplied labels and preferences, without guessing between similar sensors.",
                 {
                     **{
                         key: value
@@ -249,11 +249,43 @@ class FastDecisions:
                 },
             ),
         }
+        if config.get("builtin_preset"):
+            for key in (
+                "power",
+                "volume",
+                "player",
+                "playback",
+                "music_query",
+                "media_kind",
+            ):
+                self.questions.pop(key)
+            self.questions["intent"]["criteria"] = {
+                key: value
+                for key, value in self.questions["intent"]["criteria"].items()
+                if key in ("light", "all_lights_off", "sensor", "other")
+            }
+            self.questions["intent"]["criteria"]["sensor"] = (
+                "Read one current exposed numeric measurement."
+            )
+            self.questions["light_target"]["instructions"] = (
+                "Which exposed light or room group is requested? Resolve names and aliases from the labels. Room lighting means the selected lights in that area."
+            )
+            self.questions["sensor"]["instructions"] = (
+                "Which ONE exposed numeric sensor answers the requested measurement? Resolve room, name and aliases from labels. Do not guess if several sensors match."
+            )
+            self.questions["amount"]["criteria"]["unknown"] = (
+                "A required numerical value is missing or ambiguous."
+            )
+            for key in ("light_target", "sensor"):
+                if len(self.questions[key]["criteria"]) < 2:
+                    self.questions.pop(key)
 
     def compile(self, answers, request, groups, snapshot):  # noqa: C901 - typed decision compiler
         """Return a canonical checked plan, or a reason to take the flexible branch."""
 
         def pick(name):
+            if name not in self.questions:
+                raise PlanError("no_eligible_target:" + name)
             result, confidence, margin = read_choice(
                 answers.get(name), self.questions[name]["criteria"]
             )

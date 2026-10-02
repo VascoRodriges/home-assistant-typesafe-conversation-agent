@@ -2,13 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "Decision provider",
-        "description": "Use an OpenRouter key for pinned Jev 1.13, or a TypeSafe key from {console_url}. New agents default to preview mode. Disable local handling in the Assist pipeline when testing preview mode.",
-        "data": {
-          "provider": "Provider",
-          "api_key": "Provider API key",
-          "model": "Decision model (blank uses provider default)",
-          "execution_enabled": "Allow device commands (off means preview only)"
+        "title": "Set up TypeSafe Conversation",
+        "description": "Start with the ready-made lights and sensors profile. Custom scripts, media and cleaning require separate setup.",
+        "menu_options": {
+          "quickstart": "Quick start: lights and sensors",
+          "native": "Original mode: native intents"
         }
       },
       "llm": {
@@ -28,11 +26,31 @@
         "data": {
           "api_key": "TypeSafe API key"
         }
+      },
+      "native": {
+        "title": "Decision provider",
+        "description": "Use an OpenRouter key for pinned Jev 1.13, or a TypeSafe key from {console_url}. New agents default to preview mode. Disable local handling in the Assist pipeline when testing preview mode.",
+        "data": {
+          "provider": "Provider",
+          "api_key": "Provider API key",
+          "model": "Decision model (blank uses provider default)",
+          "execution_enabled": "Allow device commands (off means preview only)"
+        }
+      },
+      "quickstart": {
+        "title": "Quick start without YAML",
+        "description": "Ready-made profile: JEV 1.13 + GPT-4o mini, spending limits, Assist-exposed lights and numeric sensors. Choose an existing OpenRouter entry (leave the key blank) or select New API key and enter a key. Commands default to off; enable permission for control. After setup, select this agent in Assist and expose the desired entities. Internet search is off. [Setup guide]({docs_url}).",
+        "data": {
+          "name": "Agent name",
+          "api_key": "OpenRouter key (new credential source only)",
+          "openrouter_entry_id": "Credential source",
+          "execution_enabled": "Allow lighting commands"
+        }
       }
     },
     "error": {
       "invalid_auth": "That API key was rejected.",
-      "cannot_connect": "Could not reach the TypeSafe API.",
+      "cannot_connect": "Could not reach the selected provider. Check connectivity from HA.",
       "unknown": "Unexpected error.",
       "invalid_config": "Check the provider, credential source and explicit model names. Router aliases are not allowed."
     },
@@ -53,7 +71,8 @@
       },
       "entry_type": "Conversation agent",
       "abort": {
-        "yaml_managed": "This agent is managed in YAML. Edit configuration.yaml and restart Home Assistant."
+        "yaml_managed": "This agent is managed in YAML. Edit configuration.yaml and restart Home Assistant.",
+        "profile_managed": "Configure this profile with the main integration entry's Configure button. Create a separate integration entry for a different profile."
       },
       "step": {
         "set_options": {
@@ -77,7 +96,7 @@
     "step": {
       "init": {
         "title": "TypeSafe settings",
-        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration.",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. Credentials remain in their selected config entry.",
         "menu_options": {
           "general": "Safety and agent",
           "models": "Models and price ceilings",
@@ -85,12 +104,14 @@
           "history": "Sensor history",
           "routing": "Routing and instructions",
           "catalog": "Advanced capability catalog",
-          "restore_yaml": "Restore YAML"
+          "restore_yaml": "Restore initial settings",
+          "scope": "Lights and sensors: entity scope",
+          "help": "Setup guide"
         }
       },
       "general": {
         "title": "Safety and agent",
-        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration. Capability commands also require the execution helper. Other toggles apply to native mode.",
+        "description": "Enable lighting control here. Advanced YAML mode also requires its local execution helper. Other toggles apply to original native mode. Changes reload the same agent, retain expenses and never rewrite YAML.",
         "data": {
           "execution_enabled": "Allow device commands",
           "always_confirm_risky": "Confirm risky native actions",
@@ -101,7 +122,7 @@
       },
       "models": {
         "title": "Models and price ceilings",
-        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration.",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. Credentials remain in their selected config entry.",
         "data": {
           "decision": "Decision model (pinned)",
           "planner": "Complex request planner",
@@ -112,7 +133,7 @@
       },
       "budget": {
         "title": "Expense limits",
-        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration. Saving NEVER resets recorded expenses.",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. Credentials remain in their selected config entry. Saving NEVER resets recorded expenses.",
         "data": {
           "request_usd": "Per request (USD)",
           "daily_usd": "Per UTC day (USD)",
@@ -121,7 +142,7 @@
       },
       "history": {
         "title": "Sensor history",
-        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration. Does not change Recorder retention.",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. Credentials remain in their selected config entry. Does not change Recorder retention.",
         "data": {
           "enabled": "Read Recorder history",
           "max_days": "Maximum lookback (days)",
@@ -130,7 +151,7 @@
       },
       "routing": {
         "title": "Routing and instructions",
-        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration.",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. Credentials remain in their selected config entry.",
         "data": {
           "review_threshold": "Planner review threshold",
           "fast_control_threshold": "Fast command probability",
@@ -142,7 +163,7 @@
       },
       "catalog": {
         "title": "Advanced capability catalog",
-        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. The key stays in the referenced OpenRouter integration.",
+        "description": "Saved UI sections override YAML. Changes reload the same agent and retain its expense ledger and entity ID. Credentials remain in their selected config entry.",
         "data": {
           "script_catalog": "Script catalog path inside HA config",
           "execution_switch": "Execution gate input_boolean",
@@ -153,11 +174,22 @@
         }
       },
       "restore_yaml": {
-        "title": "Restore YAML",
-        "description": "Remove all UI overrides and return to YAML, including its device execution permission. Expenses are retained.",
+        "title": "Restore initial settings",
+        "description": "Remove all UI overrides and return to the original YAML or built-in defaults, including device execution permission. Expenses are retained.",
         "data": {
           "confirm": "Remove all UI overrides"
         }
+      },
+      "scope": {
+        "title": "Basic profile entity scope",
+        "description": "Empty list: all Assist-exposed lights and numeric sensors (up to 100). Nonempty list: only selected entities that are also exposed to Assist. This never exposes hidden entities. Room commands affect the selected lights in that area; select only the desired fixtures if you want primary lighting.",
+        "data": {
+          "basic_entities": "Restrict entity scope (optional)"
+        }
+      },
+      "help": {
+        "title": "Getting started",
+        "description": "1. For a new home: add the integration → Quick start: lights and sensors, then choose your OpenRouter credential source.\n2. In voice assistant settings, expose the desired lights and numeric sensors. Assign clear names, aliases and areas.\n3. Select the TypeSafe agent in your Assist pipeline. Disable preferred local HA command handling when testing this agent specifically.\n4. Enable device permission in Safety and agent. Until then commands are planned only.\n5. Optionally restrict the Lights and sensors entity scope. Models and limits are preselected; review their settings.\n\nTry: turn on the room light, make this lamp slightly brighter, or what is the room temperature? History needs Recorder data. Music, cleaning and custom workflows require the advanced profile; no household-specific mappings are bundled.\n\n[Complete setup guide and limitations]({docs_url})."
       }
     },
     "error": {

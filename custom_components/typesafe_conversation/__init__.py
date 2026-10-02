@@ -28,6 +28,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.reload import async_integration_yaml_config
 from homeassistant.helpers.service import async_register_admin_service
 
+from .basic import BasicRuntime
 from .const import (
     CONF_API_KEY,
     CONF_MODEL,
@@ -117,14 +118,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: TypeSafeConfigEntry) -> 
 
     household = None
     if "household" in settings:
-        household = HouseholdRuntime(
+        runtime_class = (
+            BasicRuntime
+            if settings["household"].get("builtin_preset")
+            else HouseholdRuntime
+        )
+        household = runtime_class(
             hass,
             {
                 **settings["household"],
-                "openrouter_entry_id": settings["openrouter_entry_id"],
+                "openrouter_entry_id": settings.get("openrouter_entry_id"),
+                "credential_entry_id": entry.entry_id,
             },
             entry.entry_id,
             bool(settings.get("execution_enabled", False)),
+            **({"source_catalog": catalog} if runtime_class is BasicRuntime else {}),
         )
         try:
             await household.initialize()

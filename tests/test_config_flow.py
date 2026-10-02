@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from homeassistant.config_entries import SOURCE_IMPORT
+from homeassistant.config_entries import SOURCE_IMPORT, SOURCE_USER
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -82,4 +82,79 @@ async def test_invalid_yaml_does_not_make_a_provider_request(hass, aioclient_moc
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "invalid_config"
+    assert not aioclient_mock.mock_calls
+
+
+async def test_user_menu_offers_quickstart_first(hass):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] is FlowResultType.MENU
+    assert result["menu_options"] == ["quickstart", "native"]
+
+
+@pytest.mark.parametrize("reference", [False, True])
+async def test_quickstart_creates_safe_portable_agent_without_yaml(
+    hass, aioclient_mock, reference
+):
+    source = MockConfigEntry(
+        domain="open_router",
+        data={"api_key": "sk-or-synthetic"},
+        title="Synthetic source",
+    )
+    if reference:
+        source.add_to_hass(hass)
+    aioclient_mock.get(OPENROUTER_KEY_URL, json={"data": {"limit_remaining": 1}})
+    menu = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    form = await hass.config_entries.flow.async_configure(
+        menu["flow_id"], {"next_step_id": "quickstart"}
+    )
+    assert form["type"] is FlowResultType.FORM
+    values = {"name": "Synthetic Assistant", "execution_enabled": False}
+    if reference:
+        values["openrouter_entry_id"] = source.entry_id
+    else:
+        values["api_key"] = "sk-or-synthetic"
+    with patch(
+        "custom_components.typesafe_conversation.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.flow.async_configure(form["flow_id"], values)
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    config = result["data"]
+    assert config["execution_enabled"] is False
+    assert config["household"]["builtin_preset"] is True
+    assert config["household"]["basic_entities"] == []
+    assert config["household"]["read_entities"] == {}
+    assert config["household"]["script_catalog"] == "builtin:lights_and_sensors"
+    assert config["household"]["status_sensor"].startswith("sensor.typesafe_")
+    assert len(result["result"].subentries) == 1
+    if reference:
+        assert config["openrouter_entry_id"] == source.entry_id
+        assert "api_key" not in config
+    else:
+        assert config["api_key"] == "sk-or-synthetic"
+
+
+async def test_quickstart_rejects_two_credential_sources(hass, aioclient_mock):
+    source = MockConfigEntry(domain="open_router", data={"api_key": "synthetic"})
+    source.add_to_hass(hass)
+    menu = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    form = await hass.config_entries.flow.async_configure(
+        menu["flow_id"], {"next_step_id": "quickstart"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        form["flow_id"],
+        {
+            "name": "Synthetic",
+            "api_key": "synthetic",
+            "openrouter_entry_id": source.entry_id,
+            "execution_enabled": False,
+        },
+    )
+    assert result["errors"] == {"base": "invalid_config"}
     assert not aioclient_mock.mock_calls

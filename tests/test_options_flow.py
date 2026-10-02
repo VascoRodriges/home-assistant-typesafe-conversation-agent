@@ -12,6 +12,7 @@ from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.typesafe_conversation.const import DOMAIN
+from custom_components.typesafe_conversation.presets import basic_preset
 from custom_components.typesafe_conversation.settings import effective_settings
 
 
@@ -86,8 +87,33 @@ async def open_section(hass, entry, section):
     )
 
 
+async def test_basic_scope_uses_selector_and_hides_advanced_catalog(hass, entry):
+    data = {**dict(entry.data), "household": basic_preset()}
+    hass.config_entries.async_update_entry(entry, data=data)
+    menu = await hass.config_entries.options.async_init(entry.entry_id)
+    assert "scope" in menu["menu_options"] and "catalog" not in menu["menu_options"]
+    result = await hass.config_entries.options.async_configure(
+        menu["flow_id"], {"next_step_id": "scope"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"basic_entities": ["light.sample"]}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert effective_settings(entry)["household"]["basic_entities"] == ["light.sample"]
+    assert entry.data["household"]["basic_entities"] == []
+
+
+async def test_help_returns_to_menu_without_saving(hass, entry):
+    before = deepcopy(dict(entry.options))
+    form = await open_section(hass, entry, "help")
+    assert "docs_url" in form["description_placeholders"]
+    menu = await hass.config_entries.options.async_configure(form["flow_id"], {})
+    assert menu["type"] is FlowResultType.MENU
+    assert entry.options == before
+
+
 @pytest.mark.parametrize(
-    "section", ["general", "models", "budget", "history", "routing", "catalog"]
+    "section", ["general", "models", "budget", "history", "routing", "catalog", "help"]
 )
 async def test_imported_agent_shows_options_forms(hass, entry, section):
     result = await open_section(hass, entry, section)

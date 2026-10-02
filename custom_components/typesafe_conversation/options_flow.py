@@ -8,6 +8,8 @@ import yaml
 from homeassistant.config_entries import OptionsFlow
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    EntitySelector,
+    EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     ObjectSelector,
@@ -48,8 +50,11 @@ class TypeSafeOptionsFlow(OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         sections = ["general"]
-        if "household" in self.config_entry.data:
-            sections += ["models", "budget", "history", "routing", "catalog"]
+        household = self._current().get("household")
+        if household:
+            sections += ["models", "budget", "history", "routing"]
+            sections += ["scope" if household.get("builtin_preset") else "catalog"]
+        sections.append("help")
         if self.config_entry.options:
             sections.append("restore_yaml")
         return self.async_show_menu(step_id="init", menu_options=sections)
@@ -212,6 +217,31 @@ class TypeSafeOptionsFlow(OptionsFlow):
             }
         )
         return await self._form("catalog", fields, user_input)
+
+    async def async_step_scope(self, user_input=None):
+        current = self._current()["household"]
+        return await self._form(
+            "scope",
+            {
+                vol.Required(
+                    "basic_entities", default=current.get("basic_entities", [])
+                ): EntitySelector(
+                    EntitySelectorConfig(domain=["light", "sensor"], multiple=True)
+                ),
+            },
+            user_input,
+        )
+
+    async def async_step_help(self, user_input=None):
+        if user_input is not None:
+            return await self.async_step_init()
+        return self.async_show_form(
+            step_id="help",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "docs_url": "https://github.com/VascoRodriges/home-assistant-typesafe-conversation-agent/blob/main/docs/quickstart.md"
+            },
+        )
 
     async def async_step_restore_yaml(self, user_input=None):
         if user_input is not None and user_input.get("confirm"):

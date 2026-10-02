@@ -166,12 +166,17 @@ class HouseholdRuntime:
             self.catalog = catalog
 
     def key(self):
+        reference = self.config.get("openrouter_entry_id")
         entry = self.hass.config_entries.async_get_entry(
-            self.config["openrouter_entry_id"]
+            reference or self.config.get("credential_entry_id")
         )
-        if not entry or entry.domain != "open_router" or not entry.data.get("api_key"):
+        domain = "open_router" if reference else "typesafe_conversation"
+        if not entry or entry.domain != domain or not entry.data.get("api_key"):
             raise PolicyError("Existing OpenRouter credential entry is unavailable")
         return entry.data["api_key"]
+
+    async def refresh_scope(self, context=None):
+        """YAML catalogs refresh explicitly; the basic profile overrides this hook."""
 
     def status(self):
         return {
@@ -330,7 +335,7 @@ class HouseholdRuntime:
         if {
             "voice_llm_room_lights",
             "voice_llm_play_music",
-        } <= self.catalog.tools.keys():
+        } <= self.catalog.tools.keys() or self.config.get("builtin_preset"):
             fast = FastDecisions(self.catalog, self.config, text)
             questions.update(fast.questions)
         state = {
@@ -779,6 +784,7 @@ class HouseholdRuntime:
                     raise PolicyError("Hourly request limit reached")
                 self.requests.append(now)
                 history = (history or [])[-6:]
+                await self.refresh_scope(context)
                 route, groups, decisions = await self.classify(text, history, request)
                 request.update(
                     {"route": route, "groups": sorted(groups), "decisions": decisions}
@@ -803,6 +809,17 @@ class HouseholdRuntime:
                 elif route in ("general", "web") and not groups:
                     speech = await self.answer(text, route, history, request)
                     result = {"speech": speech, "error": False, "executed": False}
+                elif (
+                    self.config.get("builtin_preset")
+                    and not self.catalog.tools
+                    and not self.config["read_entities"]
+                ):
+                    request["path"] = "basic_empty_scope"
+                    result = {
+                        "speech": "Для этого профиля пока нет доступных источников. Откройте нужный свет и числовые датчики для Assist в настройках голосовых ассистентов; проверьте выбранные объекты и права пользователя.",
+                        "error": False,
+                        "executed": False,
+                    }
                 else:
                     snapshot = self.snapshot(groups)
                     plan, reason = (

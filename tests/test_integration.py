@@ -96,6 +96,39 @@ async def test_the_agent_registers_and_advertises_control(
     )
 
 
+async def test_basic_profile_initializes_without_yaml_or_execution_helper(
+    hass, aioclient_mock
+):
+    from custom_components.typesafe_conversation.basic import BasicRuntime
+    from custom_components.typesafe_conversation.const import OPENROUTER_KEY_URL
+    from custom_components.typesafe_conversation.presets import basic_preset
+
+    await _setup_home(hass)
+    hass.states.async_set(
+        "light.sample",
+        "off",
+        {"friendly_name": "Sample lamp", "supported_color_modes": ["brightness"]},
+    )
+    async_expose_entity(hass, conversation.DOMAIN, "light.sample", True)
+    aioclient_mock.get(OPENROUTER_KEY_URL, json={"data": {"limit_remaining": 1}})
+    entry = await _add_entry(
+        hass,
+        aioclient_mock,
+        provider="openrouter",
+        household=basic_preset(),
+        execution_enabled=False,
+    )
+    runtime = entry.runtime_data.household
+    assert isinstance(runtime, BasicRuntime)
+    assert runtime.key() == "sk-test"
+    assert runtime.catalog.lights["device_light_sample:main"] == ["light.sample"]
+    assert runtime.config["read_entities"] == {}
+    assert runtime.status()["execution_enabled"] is False
+    assert runtime.status()["eligible_lights"] == 1
+    assert hass.states.get("input_boolean.typesafe_basic_permission") is None
+    assert runtime.budget.status()["month_usd"] == 0
+
+
 async def test_a_command_reaches_the_service(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ):

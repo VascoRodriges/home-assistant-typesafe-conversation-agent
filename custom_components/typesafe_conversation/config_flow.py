@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, override
+from uuid import uuid4
 
 import voluptuous as vol
 from homeassistant.config_entries import (
@@ -54,6 +55,7 @@ from .const import (
     TYPESAFE_CONSOLE_URL,
 )
 from .options_flow import TypeSafeOptionsFlow
+from .presets import basic_preset
 from .settings import YAML_SCHEMA, normalize_settings, resolve_credentials
 from .system_one import SystemOneAuthError, SystemOneClient, SystemOneError
 
@@ -110,7 +112,92 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
         self._data: dict[str, Any] = {}
 
     @override
-    async def async_step_user(
+    async def async_step_user(self, user_input=None):
+        """Offer a portable one-form setup before the advanced native wizard."""
+        return self.async_show_menu(
+            step_id="user", menu_options=["quickstart", "native"]
+        )
+
+    async def async_step_quickstart(self, user_input=None):
+        errors = {}
+        sources = self.hass.config_entries.async_entries("open_router")
+        if user_input is not None:
+            data = {
+                "provider": PROVIDER_OPENROUTER,
+                "name": user_input.get("name", "TypeSafe Conversation"),
+                "execution_enabled": user_input.get("execution_enabled", False),
+                "local_fallback_enabled": False,
+                "household": basic_preset(),
+            }
+            data["household"]["status_sensor"] = (
+                "sensor.typesafe_" + uuid4().hex[:12] + "_budget"
+            )
+            if user_input.get(CONF_OPENROUTER_ENTRY_ID) not in (None, "", "direct"):
+                data[CONF_OPENROUTER_ENTRY_ID] = user_input[CONF_OPENROUTER_ENTRY_ID]
+            if user_input.get(CONF_API_KEY, "").strip():
+                data[CONF_API_KEY] = user_input[CONF_API_KEY].strip()
+            try:
+                data = normalize_settings(YAML_SCHEMA(data))
+                credentials = resolve_credentials(self.hass, data)
+                client = SystemOneClient(
+                    async_get_clientsession(self.hass),
+                    credentials[CONF_API_KEY],
+                    credentials[CONF_MODEL],
+                    provider=PROVIDER_OPENROUTER,
+                )
+                await client.async_validate()
+            except ValueError, vol.Invalid:
+                errors["base"] = "invalid_config"
+            except SystemOneAuthError:
+                errors["base"] = "invalid_auth"
+            except SystemOneError:
+                errors["base"] = "cannot_connect"
+            else:
+                return self.async_create_entry(
+                    title=data["name"],
+                    data=data,
+                    subentries=[
+                        {
+                            "subentry_type": "conversation",
+                            "title": data["name"],
+                            "data": {},
+                            "unique_id": None,
+                        }
+                    ],
+                )
+        fields = {
+            vol.Required("name", default="TypeSafe Conversation"): TextSelector(),
+            vol.Optional(CONF_API_KEY): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
+            vol.Required(CONF_EXECUTION_ENABLED, default=False): BooleanSelector(),
+        }
+        if sources:
+            fields[
+                vol.Optional(CONF_OPENROUTER_ENTRY_ID, default=sources[0].entry_id)
+            ] = SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        SelectOptionDict(
+                            value="direct", label="New API key / Новый ключ"
+                        )
+                    ]
+                    + [
+                        SelectOptionDict(value=entry.entry_id, label=entry.title)
+                        for entry in sources
+                    ]
+                )
+            )
+        return self.async_show_form(
+            step_id="quickstart",
+            data_schema=vol.Schema(fields),
+            errors=errors,
+            description_placeholders={
+                "docs_url": "https://github.com/VascoRodriges/home-assistant-typesafe-conversation-agent/blob/main/docs/quickstart.md"
+            },
+        )
+
+    async def async_step_native(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -139,7 +226,7 @@ class TypeSafeConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_llm()
 
         return self.async_show_form(
-            step_id="user",
+            step_id="native",
             data_schema=STEP_USER_SCHEMA,
             errors=errors,
             # hassfest rejects a literal URL inside a translated string, so the
@@ -292,6 +379,8 @@ class TypeSafeSubentryFlowHandler(ConfigSubentryFlow):
     async def async_step_set_options(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
+        if self._get_entry().data.get("household"):
+            return self.async_abort(reason="profile_managed")
         if self._get_entry().source == "import":
             return self.async_abort(reason="yaml_managed")
         if user_input is not None:
