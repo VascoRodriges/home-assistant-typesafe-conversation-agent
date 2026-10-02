@@ -123,6 +123,18 @@ def test_two_clauses_have_separate_bindings_and_target_checks():
     assert review.expected["operation_1_target"] == "office:ceiling_rim"
     assert review.expected["operation_1_source"] == "aligned"
     assert "preceding clauses" in review.questions["operation_1_target"]["instructions"]
+    assert (
+        '"make the rim light blue"'
+        in review.questions["operation_1_target"]["instructions"]
+    )
+    assert (
+        '"Turn on the office light"'
+        in review.questions["operation_0_target"]["instructions"]
+    )
+    assert (
+        '"Turn on the office light"'
+        not in review.questions["operation_1_target"]["instructions"]
+    )
     answers = answers_for(review)
     assert review.approve(answers, 0.8, 0.15)[0]
     answers["operation_1_source"] = {
