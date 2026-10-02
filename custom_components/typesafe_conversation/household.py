@@ -178,6 +178,7 @@ class HouseholdRuntime:
             "budget": self.budget.status(),
             "models": self.config["models"],
             "last": self.last,
+            "execution_permission": self.execution_enabled,
             "execution_enabled": self.execution_enabled
             and self.hass.states.is_state(self.config["execution_switch"], "on"),
         }
