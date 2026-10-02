@@ -143,6 +143,19 @@ class HistoryQueries:
         return questions, expected
 
 
+def local_instant(value, zone):
+    """A bare parsed wall clock means HA local time, not the host's time zone."""
+    stamp = datetime.fromisoformat(value)
+    if stamp.tzinfo is not None:
+        return stamp.astimezone(zone)
+    localized = stamp.replace(tzinfo=zone)
+    if localized.utcoffset() != localized.replace(fold=1).utcoffset():
+        raise PolicyError("Ambiguous or nonexistent historical local clock")
+    if localized.astimezone(UTC).astimezone(zone).replace(tzinfo=None) != stamp:
+        raise PolicyError("Nonexistent historical local clock")
+    return localized
+
+
 def interval(query, now, options):
     """Resolve calendar periods locally; never substitute today's value for yesterday."""
     metric, period = query["metric"], query["period"]
@@ -164,13 +177,10 @@ def interval(query, now, options):
         start = now - timedelta(days=1 if period == "last_24h" else 7)
     else:
         try:
-            start = datetime.fromisoformat(query["start_local"])
-            end = datetime.fromisoformat(query["end_local"])
+            start = local_instant(query["start_local"], now.tzinfo)
+            end = local_instant(query["end_local"], now.tzinfo)
         except (TypeError, ValueError) as error:
             raise PolicyError("Invalid historical time") from error
-        if start.tzinfo is None or end.tzinfo is None:
-            raise PolicyError("Historical times need an explicit time zone")
-        start, end = start.astimezone(now.tzinfo), end.astimezone(now.tzinfo)
     start, end, anchor = start.astimezone(UTC), end.astimezone(UTC), now.astimezone(UTC)
     if (
         not anchor - timedelta(days=options.get("max_days", 7))
@@ -324,6 +334,10 @@ async def answer_history(runtime, text, history, request, context):
                 query["clarification"]
                 or "Уточните комнату, показатель и время для чтения истории."
             )
+        # Normalize format omissions in the declared HA zone before review.
+        if query["period"] == "custom":
+            for field in ("start_local", "end_local"):
+                query[field] = local_instant(query[field], now.tzinfo).isoformat()
         # Validate window/type before spending on semantic review.
         if explicit_time(text) and query["period"] != "custom":
             raise PolicyError(

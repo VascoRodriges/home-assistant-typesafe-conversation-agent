@@ -12,6 +12,7 @@ from custom_components.typesafe_conversation.household_history import (
     HistoryQueries,
     answer_history,
     interval,
+    local_instant,
     read_recorder,
     render_history,
     summarize,
@@ -101,13 +102,31 @@ def test_last_completed_night(hour, date):
     [
         ("2026-10-01T23:31:00+03:00", "2026-10-01T23:31:00+03:00"),
         ("2026-09-01T10:00:00+03:00", "2026-09-01T10:00:00+03:00"),
-        ("2026-09-30T10:00:00", "2026-09-30T10:00:00"),
         ("2026-09-30T10:00:00+03:00", "2026-09-30T09:00:00+03:00"),
     ],
 )
-def test_invalid_future_old_naive_or_reversed_time_rejected(start, end):
+def test_invalid_future_old_or_reversed_time_rejected(start, end):
     with pytest.raises(PolicyError):
         interval(query(period="custom", start_local=start, end_local=end), NOW, {})
+
+
+def test_parser_bare_clock_is_ha_local_time_not_host_time():
+    start, end = interval(
+        query(
+            period="custom",
+            start_local="2026-09-30T21:00:00",
+            end_local="2026-09-30T21:00:00",
+        ),
+        NOW,
+        {},
+    )
+    assert start == end == datetime(2026, 9, 30, 18, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("stamp", ["2026-10-25T02:30:00", "2026-03-29T02:30:00"])
+def test_ambiguous_and_nonexistent_bare_clocks_rejected(stamp):
+    with pytest.raises(PolicyError):
+        local_instant(stamp, ZoneInfo("Europe/Berlin"))
 
 
 def test_point_never_uses_future_sample_or_skips_unavailable():
