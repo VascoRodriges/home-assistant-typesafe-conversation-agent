@@ -432,7 +432,8 @@ async def test_compact_candidate_plan_uses_same_local_validator(runtime):
         {
             "capability": "voice_llm_receiver_power",
             "arguments_json": '{"power_action":"off"}',
-        }
+        },
+        operation_sources=["выключи ресивер"],
     )
     runtime.api = AsyncMock(
         return_value={
@@ -454,6 +455,7 @@ async def test_compact_candidate_plan_uses_same_local_validator(runtime):
     assert result["operations"] == [
         {"capability": "voice_llm_receiver_power", "arguments": {"power_action": "off"}}
     ]
+    assert request["operation_sources"] == ["выключи ресивер"]
 
 
 def test_overspend_blocks_execution_budget():

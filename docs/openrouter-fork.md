@@ -16,8 +16,14 @@ conversation platform to bridge existing YAML scripts.
 3. One explicitly selected model generates a schema-constrained plan. Local
    validation rejects unknown scripts/fields, out-of-range values, invented
    volume/brightness numbers, protected-target conflicts and unsupported timing.
+   Each action also supplies an exact current-request excerpt. Local validation
+   requires one excerpt per operation and rejects invented or historical text.
 4. One Jev batch selects typed alternatives for the target, action, literal
-   values and room order, plus whole-request coverage. It compares the selected
+   values and room order, plus excerpt-to-action alignment and whole-request
+   coverage. Each operation is reviewed against its own clause; the whole request
+   resolves omitted subjects/areas from prior clauses until explicitly changed.
+   Local household preferences define unnamed fixture defaults. A planner excerpt
+   is provenance, not trusted permission. It compares the selected
    field probabilities and margins rather than relying on one opaque global
    confidence. Rejection asks for clarification; there is no replanning loop.
 5. All model work and whole-chain service preflight finish before any side

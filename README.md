@@ -27,6 +27,8 @@ The fork also adds an optional advanced YAML capability mode for an existing hom
 - Complex requests use one explicit planner plus a typed Jev review; no repeated
   opaque veto/replanning loop. General answers and current-data search use
   separate, locally selected model roles.
+  Each action is bound to a validated verbatim clause, independently reviewed
+  with whole-request references and user-defined fixture defaults.
 - Typed script fields and local scope checks connect room lighting, Music
   Assistant destinations, receiver workflows and deferred cleaning helpers.
   Device logic stays in your YAML scripts, not a list of exact spoken phrases.
