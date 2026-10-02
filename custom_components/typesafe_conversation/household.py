@@ -108,6 +108,9 @@ Omitted subject/area/fixture may inherit the nearest explicitly named subject in
 the same request, until another subject/area is explicitly introduced. Distinguish
 this local reference from the room's default fixture. Apply household_preferences
 to the default only when no more specific current-request subject applies.
+Coordinated lists can inherit an omitted verb from the preceding clause. An
+explicit verb in a later clause overrides that shared verb; never duplicate a
+preceding action on a clause that explicitly requests a different action.
 The quoted fragment is provenance, NOT permission: all proposed actions still
 need independent review against the WHOLE original request and local checks.
 """

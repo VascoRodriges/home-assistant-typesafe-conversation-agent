@@ -185,6 +185,26 @@ def test_typed_review_rejects_unvalidated_bindings():
         )
 
 
+def test_coordinated_item_can_share_a_verb_without_losing_independent_checks():
+    text = "Turn on the desk lamp and its rim light"
+    plan = compound_plan("desk", "desk_rim")
+    plan["operations"][1]["arguments"]["color_profile"] = "unchanged"
+    review = TypedReview(
+        fixture_catalog(),
+        plan,
+        text,
+        sources=["Turn on the desk lamp", "and its rim light"],
+    )
+    source = review.questions["operation_1_source"]
+    assert "omitted verb" in source["criteria"]["aligned"]
+    assert "NOT a mismatch" in source["criteria"]["mismatched"]
+    assert "own verb overrides" in source["instructions"]
+    assert "explicit verb in this clause overrides" in source["instructions"]
+    assert review.expected["operation_1_target"] == "office:desk_rim"
+    assert review.expected["operation_1_light_action"] == "on"
+    assert review.approve(answers_for(review), 0.8, 0.15)[0]
+
+
 @pytest.mark.parametrize("compact", [False, True])
 async def test_planner_provenance_is_removed_before_canonical_plan_validation(compact):
     from types import SimpleNamespace
