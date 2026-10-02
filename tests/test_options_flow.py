@@ -111,7 +111,10 @@ async def test_history_save_retains_identity_data_other_options_and_ledger(hass,
     assert entry.options["execution_enabled"] is False
     assert effective_settings(entry)["household"]["history"]["max_days"] == 3
     assert not reload.called  # This unloaded test entry has no update listener.
-    assert not list(Path(hass.config.config_dir).glob(".storage/*.budget"))
+    ledgers = await hass.async_add_executor_job(
+        lambda: list(Path(hass.config.config_dir).glob(".storage/*.budget"))
+    )
+    assert not ledgers
 
 
 async def test_bad_history_rejected_without_entry_mutation(hass, entry):
